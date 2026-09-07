@@ -105,3 +105,40 @@ class InspectionDetailOut(InspectionOut):
     evidence_items: List[EvidenceOut] = []
     declarations: List[DeclarationOut] = []
     findings: List[FindingOut] = []
+
+
+class AnalyzeRequest(BaseModel):
+    pipeline_version: Optional[str] = "local-1.0"
+    model_version: Optional[str] = "regex-tier1-1.0"
+
+
+class AnalysisRunOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    inspection_id: UUID
+    pipeline_version: str
+    model_version: str
+    status: str
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    error_detail: Optional[str] = None
+    created_at: datetime
+
+
+class DeclarationIngestItem(BaseModel):
+    canonical_key: str
+    machine_value: Optional[str] = None
+    confidence: Optional[float] = None
+    confidence_label: Optional[str] = None
+    bounding_box: Optional[Dict[str, Any]] = None
+    font_size_mm: Optional[float] = None
+    contrast_pass: Optional[bool] = None
+    script_language: Optional[str] = None
+    clearance_pass: Optional[bool] = None
+    evidence_id: Optional[UUID] = None
+
+
+class DeclarationIngestRequest(BaseModel):
+    declarations: List[DeclarationIngestItem]
+    raw_ocr_output: Optional[Dict[str, Any]] = None

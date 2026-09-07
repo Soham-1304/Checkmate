@@ -10,6 +10,40 @@ from app.models.rules import Requirement, RuleSet
 from app.models.workflow import Inspection
 
 
+LOW_CONF_THRESHOLD = 0.60
+
+BULK_EXEMPT_REFS = ("Rule7", "Rule8", "Rule9(1)(b)")
+
+
+def _weight_grams(quantity, unit) -> float | None:
+    try:
+        q = float(quantity)
+    except (TypeError, ValueError):
+        return None
+    u = (unit or "").lower()
+    if u in ("kg", "kilogram", "kilograms"):
+        return q * 1000.0
+    if u in ("g", "gram", "grams"):
+        return q
+    if u in ("ml", "l", "cm", "m", "n", "u"):
+        return None
+    return None
+
+
+def _is_bulk_exempt(inspection) -> bool:
+    grams = _weight_grams(inspection.physical_quantity, inspection.physical_unit)
+    if grams is not None and grams > 25000:
+        return True
+    notes = (inspection.context_notes or "").lower()
+    return any(k in notes for k in ("industrial", "bulk pack", ">25kg", "> 25 kg", "25kg exemption"))
+
+
+def is_applicable(req, inspection, bulk_exempt: bool) -> bool:
+    if bulk_exempt and any(r in req.rule_ref for r in BULK_EXEMPT_REFS):
+        return False
+    return True
+
+
 async def run_compliance_evaluation(inspection_id: UUID, db: AsyncSession) -> Tuple[str, List[Finding]]:
     # 1. Fetch Inspection with declarations and active rule set
     stmt = (
@@ -40,14 +74,25 @@ async def run_compliance_evaluation(inspection_id: UUID, db: AsyncSession) -> Tu
     findings: List[Finding] = []
     has_fail = False
     has_review = False
+    bulk_exempt = _is_bulk_exempt(inspection)
 
-    # 3. Evaluate each statutory requirement
+    # 3. Evaluate each statutory requirement (applicability pass first)
     for req in inspection.rule_set.requirements:
+        ref = req.rule_ref
+        if not is_applicable(req, inspection, bulk_exempt):
+            db.add(ComplianceEvaluation(
+                inspection_id=inspection_id,
+                requirement_id=req.id,
+                result="NOT_APPLICABLE",
+                eval_detail={"explanation": "Exempt under Rule 3 bulk/industrial pack (>25kg).", "bulk_exempt": True},
+            ))
+            await db.flush()
+            continue
+
         result_status = "PASS"
         explanation = ""
         diag = {}
-
-        ref = req.rule_ref
+        driving_decl = None
 
         # Rule 6(1)(e): MRP with "inclusive of all taxes"
         if "Rule6(1)(e)" in ref:
@@ -163,6 +208,20 @@ async def run_compliance_evaluation(inspection_id: UUID, db: AsyncSession) -> Tu
             if non_compliant_langs:
                 result_status = "FAIL"
                 explanation = f"Mandatory declarations found in unauthorized script '{non_compliant_langs[0]}'. Must be Hindi or English."
+
+        # Global invariant: low confidence → REVIEW, never FAIL
+        if result_status == "FAIL":
+            low_conf_decl = None
+            for d in decl_map.values():
+                if d.confidence is not None and float(d.confidence) < LOW_CONF_THRESHOLD:
+                    low_conf_decl = d
+                    break
+            if low_conf_decl is not None:
+                result_status = "REVIEW"
+                explanation = (explanation + " " if explanation else "") + (
+                    "Downgraded to REVIEW: driving extraction confidence "
+                    f"({float(low_conf_decl.confidence):.2f}) below {LOW_CONF_THRESHOLD:.2f}. Requires officer confirmation."
+                )
 
         # 4. Save evaluation
         evaluation = ComplianceEvaluation(
