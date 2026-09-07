@@ -1,10 +1,11 @@
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends
-from sqlalchemy import func, select
+from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.deps import get_current_user, get_db
 from app.models.compliance import Finding
 from app.models.user import User
-from app.models.workflow import Inspection
+from app.models.workflow import Assignment, Inspection
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard & Analytics"])
 
@@ -63,3 +64,54 @@ async def get_top_violations(
     rows = result.all()
 
     return [{"rule_reference": r[0], "title": r[1], "occurrences": r[2]} for r in rows]
+
+
+@router.get("/officer")
+async def get_officer_dashboard(
+    db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
+):
+    today = datetime.now(timezone.utc).date()
+    today_count = (
+        await db.execute(
+            select(func.count(Inspection.id)).where(
+                Inspection.officer_id == current_user.id, func.date(Inspection.created_at) == today
+            )
+        )
+    ).scalar() or 0
+
+    pending = (
+        await db.execute(
+            select(func.count(Assignment.id)).where(
+                Assignment.assigned_to == current_user.id,
+                Assignment.status.in_(["ASSIGNED", "REASSIGNED", "IN_PROGRESS"]),
+            )
+        )
+    ).scalar() or 0
+
+    total_mine = (
+        await db.execute(select(func.count(Inspection.id)).where(Inspection.officer_id == current_user.id))
+    ).scalar() or 0
+    done_mine = (
+        await db.execute(
+            select(func.count(Inspection.id)).where(
+                Inspection.officer_id == current_user.id, Inspection.status == "COMPLETED"
+            )
+        )
+    ).scalar() or 0
+
+    recent = (
+        await db.execute(
+            select(Inspection).where(Inspection.officer_id == current_user.id).order_by(desc(Inspection.created_at)).limit(5)
+        )
+    ).scalars().all()
+
+    return {
+        "today_count": today_count,
+        "my_pending_assignments": pending,
+        "my_completion_rate": round(done_mine / total_mine, 3) if total_mine else 0.0,
+        "my_total_inspections": total_mine,
+        "recent_activity": [
+            {"id": i.id, "status": i.status, "compliance_result": i.compliance_result, "created_at": i.created_at}
+            for i in recent
+        ],
+    }
