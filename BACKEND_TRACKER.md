@@ -89,3 +89,4 @@ B5 MPE + Second Schedule validators                      [compliance depth]
 - 2026-09-07: B0 LIVE — Alembic baseline applied (18 tables), `seed_gazette` (roles, 3 users, 12 fields, rule set + 10 requirements) + `seed_demo` (3 entities, 4 brands, 8 barcoded commodities, 5 officer assignments) all committed. Verified counts: users=3, commodities=8, assignments=5.
 - 2026-09-07: `.env` cleaned — single canonical `DATABASE_URL` (session pooler 5432, real password, verified live: users=3, commodities=8, assignments=5, requirements=10).
 - 2026-09-07: Git live in `DoCA/` — `.gitignore` (`.env` excluded, verified untracked), initial commit `5af89bd` (backend + Alembic baseline + seeds + trackers). Tree clean.
+- 2026-09-07: Secret purge — real Supabase keys were in `.env.example` at commit time; rebuilt history as fresh root commit `96176b5`, gc'd dangling objects, verified zero `eyJ` in history. Never pushed, so keys are safe to keep.
