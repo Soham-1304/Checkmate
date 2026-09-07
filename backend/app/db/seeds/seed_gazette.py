@@ -11,12 +11,39 @@ from app.models.rules import RuleSet, Requirement
 async def seed_database():
     print("🌱 Starting DoCA Gazette & Baseline Seeder...")
     async with AsyncSessionLocal() as session:
-        # 1. Seed Roles
+        # 1. Seed Roles (capability keys per BACKEND_ARCHITECTURE §1.1;
+        # require_capability() reads these — keep in sync with docs)
         roles_data = [
             {"name": "SUPERADMIN", "permissions": {"all": True}},
-            {"name": "ADMIN", "permissions": {"manage_users": True, "manage_assignments": True, "manage_rules": True}},
-            {"name": "REVIEWER", "permissions": {"review_inspections": True, "finalize_decisions": True}},
-            {"name": "OFFICER", "permissions": {"execute_inspections": True, "upload_evidence": True}},
+            {
+                "name": "ADMIN",
+                "permissions": {
+                    "can_create_inspection": True,
+                    "can_edit_own_inspection": True,
+                    "can_review_all": True,
+                    "can_finalize": True,
+                    "can_manage_users": True,
+                    "can_manage_master_data": True,
+                    "can_assign": True,
+                    "can_view_own_reports": True,
+                    "can_view_all_reports": True,
+                    "can_manage_rules": True,
+                    "can_view_audit": True,
+                    "can_view_admin_kpis": True,
+                },
+            },
+            {
+                "name": "REVIEWER",
+                "permissions": {"can_review_all": True, "can_finalize": True},
+            },
+            {
+                "name": "OFFICER",
+                "permissions": {
+                    "can_create_inspection": True,
+                    "can_edit_own_inspection": True,
+                    "can_view_own_reports": True,
+                },
+            },
         ]
         roles = {}
         for r_data in roles_data:
@@ -30,6 +57,9 @@ async def seed_database():
                 print(f"  [+] Role seeded: {r_data['name']}")
             else:
                 roles[r_data["name"]] = existing
+                if existing.permissions != r_data["permissions"]:
+                    existing.permissions = r_data["permissions"]
+                    print(f"  [~] Role permissions updated: {r_data['name']}")
 
         # 2. Seed Default Users
         users_data = [

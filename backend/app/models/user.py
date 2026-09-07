@@ -44,3 +44,18 @@ class User(Base):
     created_assignments = relationship(
         "Assignment", foreign_keys="Assignment.assigned_by", back_populates="assigner"
     )
+    refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
+
+
+class RefreshToken(Base):
+    __tablename__ = "refresh_tokens"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    token_hash = Column(String(128), unique=True, nullable=False, index=True)  # sha256 of opaque token
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    replaced_by = Column(UUID(as_uuid=True), nullable=True)  # id of rotating successor
+
+    user = relationship("User", back_populates="refresh_tokens")

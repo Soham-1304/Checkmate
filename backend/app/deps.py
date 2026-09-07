@@ -59,3 +59,23 @@ def require_roles(*allowed_roles: str):
         return current_user
 
     return role_checker
+
+
+def require_capability(*capabilities: str):
+    """Capability guard layered over roles — reads roles.permissions JSONB.
+
+    SUPERADMIN (or {"all": true}) bypasses. All listed capabilities required.
+    """
+
+    def capability_checker(current_user: User = Depends(get_current_user)):
+        perms = current_user.role.permissions or {}
+        if current_user.role.name == "SUPERADMIN" or perms.get("all") is True:
+            return current_user
+        missing = [c for c in capabilities if not perms.get(c)]
+        if missing:
+            raise PermissionDeniedException(
+                f"Missing required permission(s): {', '.join(missing)}."
+            )
+        return current_user
+
+    return capability_checker

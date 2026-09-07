@@ -19,11 +19,11 @@
 
 | Endpoint | Consumer | Status | File |
 |---|---|---|---|
-| `POST /api/v1/auth/login` (form) + `/login/json` | A+O | 🟡 SCAFFOLDED | `api/v1/auth.py:14-61` — needs live-DB verify |
-| `GET /api/v1/auth/me` | A+O | 🟡 SCAFFOLDED | `auth.py:64-72` |
-| `POST /api/v1/auth/refresh` (rotation) | O (long field sessions) | 🔴 REMAINING | No code. Decide: opaque refresh table vs longer JWT |
-| `GET/POST/PATCH /api/v1/users` (create/list/deactivate officers, reset pw) | A | 🔴 REMAINING | No `users.py` router at all |
-| Granular `permissions` check (beyond role-name strings) | A | 🔴 REMAINING | `deps.py:53-59` only checks names; `roles.permissions` JSONB unused |
+| `POST /api/v1/auth/login` (form) + `/login/json` | A+O | 🟢 DONE (B3: refresh pair issued) | `api/v1/auth.py` — live-DB verified, inactive blocked both paths |
+| `GET /api/v1/auth/me` | A+O | 🟢 DONE | `auth.py` |
+| `POST /api/v1/auth/refresh` (rotation) + `POST /auth/logout` | O (long field sessions) | 🟢 DONE (B3 live) | opaque sha256 tokens, `refresh_tokens` table (migration `b3_refresh_tokens`), reuse → chain revoked |
+| `GET/POST/PATCH /api/v1/users` (create/list/deactivate officers, reset pw) | A | 🟢 DONE (B3 live) | `users.py` — `can_manage_users`, 409 dup, SUPERADMIN blocked, self-deactivate/role-change blocked |
+| Granular `permissions` check (beyond role-name strings) | A | 🟢 DONE (B3 live) | `require_capability(*caps)` in `deps.py` reads `roles.permissions`; seeds aligned to §1.1 matrix |
 
 ## 2. Officer RN flow (O): checklist → new inspection → capture → review → result → submit
 
@@ -55,7 +55,7 @@
 | `POST /api/v1/inspections/{id}/report` + `GET .../report` (Form A/B PDF, WeasyPrint+Jinja2, embed images) | 🔴 REMAINING | No `reports.py` router |
 | `GET /api/v1/repository/search` (brand, manufacturer, commodity, barcode, date, officer, violation) + CSV/Excel export | 🔴 REMAINING | No code |
 | `GET /api/v1/audit-events?entity_type=&entity_id=` | 🔴 REMAINING | Events written (`INSPECTION_CREATED/SUBMITTED`, `EVIDENCE_UPLOADED`, `DECLARATION_CORRECTED`, `FINDING_REVIEWED`, `FINAL_DECISION_RECORDED`) but no query endpoint |
-| Rules read-only (`GET /api/v1/rule-sets`, requirements) | 🔴 REMAINING | Version banner `LM-PCR-2011-v1.0` for admin UI |
+| Rules read-only (`GET /api/v1/rule-sets`, requirements) | 🟢 DONE (B3 live) | `rule_sets.py` — list/active/detail; version banner for admin UI; model-guy v2 surface |
 
 ## 4. Storage (both apps — RN is the stress case)
 
@@ -95,3 +95,4 @@ B5 MPE + Second Schedule validators                      [compliance depth]
 - 2026-09-07: B1 DONE — evidence upload wired to live Supabase (`Bluetick_Image_Store`, presigned GET 1h). E2E verified: login → create inspection → multipart upload → signed URL fetch 200 (825B) → bucket+DB cleaned. Fixed: `backend/.env` missing (server fell back to `doca_admin@localhost`); copied canonical `.env`. Buckets use existing `Bluetick_*` names via env.
 - 2026-09-07: B2 DONE — ML async-callback contract live (`analysis.py`, officer JWT): `POST .../analyze` (evidence-required guard, DRAFT→IN_PROGRESS, ANALYSIS_QUEUED audit), `GET .../analysis-runs/{rid}` poll, `PUT .../declarations` strict ingest (422 unknown key / conf range / script / bbox; upsert per field; COMPLETED+ANALYSIS_COMPLETED audit). `compliance_service`: Rule 3 bulk applicability pass (>25kg or industrial notes → Rule7/Rule8/Rule9(1)(b) NOT_APPLICABLE) + global low-conf<0.60 FAIL→REVIEW. E2E verified live (400 no-evidence, QUEUED→COMPLETED 6 decls, REVIEW on low-conf MRP, NOT_APPLICABLE ×3 at 30kg) → bucket+DB cleaned.
 - 2026-09-07: B1–B2 AUDIT (6 fixes, all live-verified): F1 `GET inspection` built DeclarationOut manually — detail route returned `canonical_key/display_name: null` (from_attributes falls back to defaults); F2 moved key/evidence pre-validation before RUNNING flip (422s left runs dirty, FAILED never persisted) + ANALYSIS_FAILED audit; F3 scoped low-conf downgrade per-requirement driving keys (old code let ANY low-conf field soften ANY FAIL — proved: high-conf MRP FAIL now stays FAIL); F4 `login/json` missing `is_active` check (deactivated users could log in — now 400 both paths); F5 `evidence_id` must belong to inspection (422); F6 `analyze` reuses existing QUEUED run (200) instead of duplicates. Solid as-is: storage presign, guards, bulk exempt, re-evaluate cascade, SUPERADMIN bypass, inactive-token rejection.
+- 2026-09-08: B3 DONE — RBAC capabilities + users + refresh + rulebook. `require_capability(*caps)` (`deps.py`, SUPERADMIN bypass) + seeds aligned to §1.1 matrix (live-updated). Users CRUD (`users.py`, `can_manage_users`): 201 create, list w/ role/active/q, get, patch (self-deactivate + self-role-change + SUPERADMIN-via-API blocked, 409 dup). Refresh rotation: `refresh_tokens` table (alembic `b3_refresh_tokens`, applied live), login issues pair, `/refresh` rotates, reuse → 401 + whole chain revoked, `/logout` 204. Rule-sets read (`rule_sets.py`: list/active/detail). Docs: `docs/RULEBOOK_v1.md` (clean 10-req extraction + gaps) + `docs/RULEBOOK_CONTRACT.md` (ingest schema, check_logic types, v2 drop-in). E2E live (403s, rotation, reuse-kill, 400/409/422 guards, logout) → test user cleaned (users=3).
