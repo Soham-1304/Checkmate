@@ -1,5 +1,4 @@
 import os
-import shutil
 import uuid
 from typing import List
 from uuid import UUID
@@ -14,6 +13,7 @@ from app.models.evidence import Evidence
 from app.models.user import User
 from app.models.workflow import Inspection
 from app.schemas.inspection import EvidenceOut
+from app.services import storage_service
 
 router = APIRouter(prefix="/inspections", tags=["Evidence & Uploads"])
 
@@ -34,31 +34,25 @@ async def upload_evidence(
     if not inspection:
         raise EntityNotFoundException("Inspection", inspection_id)
 
-    # Validate mime type
-    valid_mimes = ["image/jpeg", "image/png", "image/webp"]
-    if file.content_type not in valid_mimes:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid file type '{file.content_type}'. Must be JPG, PNG, or WEBP.",
-        )
+    # Read into memory for validation + size cap
+    data = await file.read()
+    storage_service.check_upload(file.content_type or "", len(data))
 
-    # Save to local disk / MinIO
-    file_ext = os.path.splitext(file.filename)[1] or ".jpg"
-    unique_name = f"{inspection_id}_{uuid.uuid4().hex[:8]}{file_ext}"
-    target_path = os.path.join(UPLOAD_DIR, unique_name)
-
-    with open(target_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
-    file_key = f"evidence/{unique_name}"
-    file_url = f"/uploads/{unique_name}"
+    object_name = storage_service.build_object_name(str(inspection_id), file.filename or "")
+    if settings.STORAGE_BACKEND == "supabase":
+        storage_service.upload_bytes(object_name, data, file.content_type or "image/jpeg", settings.SUPABASE_BUCKET_EVIDENCE)
+        file_key = object_name
+        file_url = storage_service.presigned_url(object_name, settings.SUPABASE_BUCKET_EVIDENCE)
+    else:
+        file_url = storage_service.save_bytes_local(object_name, data)
+        file_key = f"evidence/{os.path.basename(file_url)}"
 
     evidence = Evidence(
         inspection_id=inspection_id,
         file_key=file_key,
         file_url=file_url,
         view_type=view_type.upper(),
-        mime_type=file.content_type,
+        mime_type=file.content_type or "image/jpeg",
     )
     db.add(evidence)
     await db.flush()
@@ -68,7 +62,7 @@ async def upload_evidence(
         action="EVIDENCE_UPLOADED",
         entity_type="EVIDENCE",
         entity_id=evidence.id,
-        new_value={"view_type": view_type, "file_key": file_key},
+        new_value={"view_type": view_type, "file_key": file_key, "storage": settings.STORAGE_BACKEND},
     )
     db.add(audit)
     await db.commit()

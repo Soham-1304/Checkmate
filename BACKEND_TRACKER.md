@@ -33,7 +33,8 @@
 | `POST/GET /api/v1/assignments` (admin allocates, reassign, cancel) | 🔴 REMAINING | Needed so checklist has data |
 | `GET /commodities/search?barcode=` + commodity/entity CRUD | 🔴 REMAINING | No `commodities.py` router; RN falls back to manual entry until this lands |
 | `POST /api/v1/inspections` (draft, locks active rule set) | 🟡 SCAFFOLDED | `inspections.py:25-62` ✅ |
-| `POST /api/v1/inspections/{id}/evidence` multipart (FRONT_PDP/BACK_PANEL/SIDE_PANEL) | 🟡 SCAFFOLDED | `evidence.py:24-76` — local disk only, 10MB limit? RN needs: max-size doc + presigned-URL alternative |
+| `POST /api/v1/inspections/{id}/evidence` multipart (FRONT_PDP/BACK_PANEL/SIDE_PANEL) | 🟢 DONE (live Supabase) | `evidence.py` → `storage_service` (mime+10MB cap, `<inspection>/<rand>.jpg`, presigned GET 1h); verified 200-byte fetch; test data cleaned |
+| `GET /api/v1/inspections/{id}/evidence` (list) | 🟢 DONE | returns `file_key`/`file_url` (presigned when Supabase) |
 | `GET /api/v1/inspections/{id}/declarations` + `PATCH .../declarations/{did}` (officer correction, keep `machine_value`) | 🟡 SCAFFOLDED | `declarations.py` ✅ incl. audit |
 | `POST .../evaluate` + `GET .../findings` + `PATCH .../findings/{fid}` (accept/note) | 🟡 SCAFFOLDED | `compliance.py` ✅ |
 | `PATCH /api/v1/inspections/{id}` (physical_quantity/unit for MPE) | 🟡 SCAFFOLDED | Accepts fields, no MPE math (First Schedule 🔴) |
@@ -90,3 +91,4 @@ B5 MPE + Second Schedule validators                      [compliance depth]
 - 2026-09-07: `.env` cleaned — single canonical `DATABASE_URL` (session pooler 5432, real password, verified live: users=3, commodities=8, assignments=5, requirements=10).
 - 2026-09-07: Git live in `DoCA/` — `.gitignore` (`.env` excluded, verified untracked), initial commit `5af89bd` (backend + Alembic baseline + seeds + trackers). Tree clean.
 - 2026-09-07: Secret purge — real Supabase keys were in `.env.example` at commit time; rebuilt history as fresh root commit `96176b5`, gc'd dangling objects, verified zero `eyJ` in history. Never pushed, so keys are safe to keep.
+- 2026-09-07: B1 DONE — evidence upload wired to live Supabase (`Bluetick_Image_Store`, presigned GET 1h). E2E verified: login → create inspection → multipart upload → signed URL fetch 200 (825B) → bucket+DB cleaned. Fixed: `backend/.env` missing (server fell back to `doca_admin@localhost`); copied canonical `.env`. Buckets use existing `Bluetick_*` names via env.
