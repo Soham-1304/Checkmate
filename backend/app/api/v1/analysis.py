@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import EntityNotFoundException
@@ -27,9 +27,10 @@ def _check_owner(inspection: Inspection, current_user: User) -> None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied to this inspection.")
 
 
-@router.post("/{inspection_id}/analyze", response_model=AnalysisRunOut, status_code=status.HTTP_201_CREATED)
+@router.post("/{inspection_id}/analyze", response_model=AnalysisRunOut)
 async def trigger_analyze(
     inspection_id: UUID,
+    response: Response,
     payload: AnalyzeRequest | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -46,6 +47,11 @@ async def trigger_analyze(
     if not ev_count:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Upload at least one evidence image before analyze.")
 
+    existing = (await db.execute(select(AnalysisRun).where(AnalysisRun.inspection_id == inspection_id, AnalysisRun.status == "QUEUED").order_by(AnalysisRun.created_at.desc()).limit(1))).scalar_one_or_none()
+    if existing:
+        response.status_code = status.HTTP_200_OK
+        return existing
+
     run = AnalysisRun(
         inspection_id=inspection_id,
         pipeline_version=(payload.pipeline_version if payload else None) or "local-1.0",
@@ -61,6 +67,7 @@ async def trigger_analyze(
     db.add(AuditEvent(actor_id=current_user.id, action="ANALYSIS_QUEUED", entity_type="ANALYSIS_RUN", entity_id=run.id, new_value={"inspection_id": str(inspection_id)}))
     await db.commit()
     await db.refresh(run)
+    response.status_code = status.HTTP_201_CREATED
     return run
 
 
@@ -114,6 +121,18 @@ async def ingest_declarations(
         if item.bounding_box is not None and not isinstance(item.bounding_box, dict):
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"bounding_box for '{item.canonical_key}' must be an object.")
 
+    # Pre-validate keys + evidence ownership BEFORE touching run state,
+    # so 422s never leave the run flipped to RUNNING with no FAILED trail.
+    fd_rows = (await db.execute(select(FieldDefinition))).scalars().all()
+    fd_by_key = {fd.canonical_key: fd for fd in fd_rows}
+    ev_rows = (await db.execute(select(Evidence.id).where(Evidence.inspection_id == inspection_id))).all()
+    ev_ids = {r[0] for r in ev_rows}
+    for item in payload.declarations:
+        if item.canonical_key not in fd_by_key:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Unknown canonical_key '{item.canonical_key}'.")
+        if item.evidence_id is not None and item.evidence_id not in ev_ids:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"evidence_id '{item.evidence_id}' does not belong to this inspection.")
+
     try:
         run.status = "RUNNING"
         run.started_at = datetime.now(timezone.utc)
@@ -121,9 +140,7 @@ async def ingest_declarations(
 
         upserted = 0
         for item in payload.declarations:
-            fd = (await db.execute(select(FieldDefinition).where(FieldDefinition.canonical_key == item.canonical_key))).scalar_one_or_none()
-            if not fd:
-                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Unknown canonical_key '{item.canonical_key}'.")
+            fd = fd_by_key[item.canonical_key]
 
             existing = (await db.execute(select(Declaration).where(Declaration.inspection_id == inspection_id, Declaration.field_definition_id == fd.id))).scalar_one_or_none()
             if existing:
@@ -163,14 +180,11 @@ async def ingest_declarations(
         await db.commit()
         await db.refresh(run)
         return {"success": True, "run_id": run.id, "status": run.status, "declarations_upserted": upserted}
-    except HTTPException:
-        await db.rollback()
-        run.status = "FAILED"
-        raise
     except Exception as exc:
         await db.rollback()
         run.status = "FAILED"
         run.error_detail = str(exc)[:500]
         db.add(run)
+        db.add(AuditEvent(actor_id=current_user.id, action="ANALYSIS_FAILED", entity_type="ANALYSIS_RUN", entity_id=run.id, new_value={"error": str(exc)[:200]}))
         await db.commit()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Declaration ingestion failed.")

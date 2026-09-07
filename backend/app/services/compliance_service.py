@@ -14,6 +14,28 @@ LOW_CONF_THRESHOLD = 0.60
 
 BULK_EXEMPT_REFS = ("Rule7", "Rule8", "Rule9(1)(b)")
 
+# Requirement → declaration keys whose confidence gates its verdict.
+# Rule9(4) scans every declaration (script is per-field), rest are scoped.
+REQ_DRIVING_KEYS = {
+    "Rule6(1)(e)": ("mrp",),
+    "Rule6(1)(a)": ("manufacturer_address", "packer_address", "manufacturer_name", "packer_name", "importer_name"),
+    "Rule6(1)(b)": ("generic_name",),
+    "Rule6(1)(c)": ("net_quantity", "net_quantity_unit"),
+    "Rule6(1)(d)": ("mfg_date",),
+    "Rule6(2)": ("consumer_care",),
+    "Rule7": ("net_quantity",),
+    "Rule8": ("net_quantity",),
+    "Rule9(1)(b)": ("mrp", "net_quantity"),
+    "Rule9(4)": ("*",),
+}
+
+
+def _driving_keys(rule_ref: str) -> tuple:
+    for prefix, keys in REQ_DRIVING_KEYS.items():
+        if prefix in rule_ref:
+            return keys
+    return ("*",)
+
 
 def _weight_grams(quantity, unit) -> float | None:
     try:
@@ -92,7 +114,6 @@ async def run_compliance_evaluation(inspection_id: UUID, db: AsyncSession) -> Tu
         result_status = "PASS"
         explanation = ""
         diag = {}
-        driving_decl = None
 
         # Rule 6(1)(e): MRP with "inclusive of all taxes"
         if "Rule6(1)(e)" in ref:
@@ -209,18 +230,21 @@ async def run_compliance_evaluation(inspection_id: UUID, db: AsyncSession) -> Tu
                 result_status = "FAIL"
                 explanation = f"Mandatory declarations found in unauthorized script '{non_compliant_langs[0]}'. Must be Hindi or English."
 
-        # Global invariant: low confidence → REVIEW, never FAIL
+        # Global invariant: low confidence → REVIEW, never FAIL.
+        # Scoped to this requirement's driving declarations only, so an
+        # unrelated low-confidence field can't soften another verdict.
         if result_status == "FAIL":
-            low_conf_decl = None
-            for d in decl_map.values():
-                if d.confidence is not None and float(d.confidence) < LOW_CONF_THRESHOLD:
-                    low_conf_decl = d
-                    break
-            if low_conf_decl is not None:
+            keys = _driving_keys(ref)
+            scoped = [d for k, d in decl_map.items() if "*" in keys or k in keys]
+            low = next(
+                (d for d in scoped if d.confidence is not None and float(d.confidence) < LOW_CONF_THRESHOLD),
+                None,
+            )
+            if low is not None:
                 result_status = "REVIEW"
                 explanation = (explanation + " " if explanation else "") + (
                     "Downgraded to REVIEW: driving extraction confidence "
-                    f"({float(low_conf_decl.confidence):.2f}) below {LOW_CONF_THRESHOLD:.2f}. Requires officer confirmation."
+                    f"({float(low.confidence):.2f}) below {LOW_CONF_THRESHOLD:.2f}. Requires officer confirmation."
                 )
 
         # 4. Save evaluation

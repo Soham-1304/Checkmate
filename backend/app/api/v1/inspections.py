@@ -8,10 +8,12 @@ from sqlalchemy.orm import selectinload
 from app.core.exceptions import EntityNotFoundException, InvalidWorkflowStateException
 from app.deps import get_current_user, get_db, require_roles
 from app.models.compliance import AuditEvent
+from app.models.evidence import Declaration
 from app.models.rules import RuleSet
 from app.models.user import User
 from app.models.workflow import Inspection
 from app.schemas.inspection import (
+    DeclarationOut,
     InspectionCreate,
     InspectionDetailOut,
     InspectionOut,
@@ -96,7 +98,7 @@ async def get_inspection(
         select(Inspection)
         .options(
             selectinload(Inspection.evidence_items),
-            selectinload(Inspection.declarations),
+            selectinload(Inspection.declarations).selectinload(Declaration.field_definition),
             selectinload(Inspection.findings),
         )
         .where(Inspection.id == inspection_id)
@@ -112,7 +114,35 @@ async def get_inspection(
             status_code=status.HTTP_403_FORBIDDEN, detail="Access denied to this inspection."
         )
 
-    return inspection
+    base = InspectionOut.model_validate(inspection)
+    declarations = [
+        DeclarationOut(
+            id=d.id,
+            inspection_id=d.inspection_id,
+            field_definition_id=d.field_definition_id,
+            canonical_key=d.field_definition.canonical_key if d.field_definition else None,
+            display_name=d.field_definition.display_name if d.field_definition else None,
+            machine_value=d.machine_value,
+            officer_value=d.officer_value,
+            final_value=d.final_value,
+            confidence=float(d.confidence) if d.confidence is not None else None,
+            confidence_label=d.confidence_label,
+            bounding_box=d.bounding_box,
+            font_size_mm=float(d.font_size_mm) if d.font_size_mm is not None else None,
+            contrast_pass=d.contrast_pass,
+            script_language=d.script_language,
+            clearance_pass=d.clearance_pass,
+            is_corrected=d.is_corrected,
+            correction_reason=d.correction_reason,
+        )
+        for d in inspection.declarations
+    ]
+    return InspectionDetailOut(
+        **base.model_dump(),
+        evidence_items=inspection.evidence_items,
+        declarations=declarations,
+        findings=inspection.findings,
+    )
 
 
 @router.patch("/{inspection_id}", response_model=InspectionOut)
