@@ -1,0 +1,70 @@
+{
+  "dataset": [
+    {
+      "sample_id": "FOOD_001",
+      "category": "Food & Beverages",
+      "image_path": "dataset/images/food_001.jpg",
+      "pdp_area_cm2": 120.0,
+      "extracted_targets": {
+        "mrp_raw_string": "MRP Rs. 150.00 (INCL. OF ALL TAXES)",
+        "mrp": 150.0,
+        "net_qty": "500 g",
+        "fssai_lic_no": "10012022000123",
+        "font_height_mm": 3.0
+      },
+      "compliance_result": {
+        "overall_status": "PASS",
+        "findings": [
+          {
+            "rule_id": "RULE_6_1_E",
+            "status": "PASS",
+            "reason": "MRP correctly formatted."
+          },
+          {
+            "rule_id": "RULE_7_FONT",
+            "status": "PASS",
+            "details": "Measured font (3.0mm) meets threshold (2.5mm)."
+          },
+          {
+            "rule_id": "RULE_FSSAI",
+            "status": "PASS",
+            "reason": "Valid FSSAI license length."
+          }
+        ]
+      }
+    },
+    {
+      "sample_id": "FOOD_002",
+      "category": "Food & Beverages",
+      "image_path": "dataset/images/food_002.jpg",
+      "pdp_area_cm2": 80.0,
+      "extracted_targets": {
+        "mrp_raw_string": "Rs 45.00",
+        "mrp": 45.0,
+        "net_qty": "200 g",
+        "fssai_lic_no": "12345",
+        "font_height_mm": 1.0
+      },
+      "compliance_result": {
+        "overall_status": "FAIL",
+        "findings": [
+          {
+            "rule_id": "RULE_6_1_E",
+            "status": "FAIL",
+            "reason": "MRP string missing 'inclusive of all taxes' or 'MRP' label."
+          },
+          {
+            "rule_id": "RULE_7_FONT",
+            "status": "FAIL",
+            "details": "Font height (1.0mm) below required 1.5mm."
+          },
+          {
+            "rule_id": "RULE_FSSAI",
+            "status": "FAIL",
+            "reason": "Missing or invalid 14-digit FSSAI license."
+          }
+        ]
+      }
+    }
+  ]
+}

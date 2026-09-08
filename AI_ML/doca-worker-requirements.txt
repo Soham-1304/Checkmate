@@ -1,0 +1,11 @@
+# DoCA ML worker dependencies (bridge only — NOT the backend venv)
+#
+# Install:  pip install -r doca-worker-requirements.txt
+# NOTE: torch via easyocr is ~2GB + downloads en/hi models (~100-200MB)
+# on first run. CPU inference runs ~5-30s per image — fine for the demo.
+easyocr==1.7.2
+opencv-python-headless==5.0.0.93
+numpy==2.5.3
+requests==2.32.3
+torch==2.14.0
+torchvision==0.29.0
