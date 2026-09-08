@@ -142,3 +142,15 @@ class DeclarationIngestItem(BaseModel):
 class DeclarationIngestRequest(BaseModel):
     declarations: List[DeclarationIngestItem]
     raw_ocr_output: Optional[Dict[str, Any]] = None
+
+
+class ReportOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    inspection_id: UUID
+    file_key: str
+    file_url: Optional[str] = None
+    report_format: str
+    generated_at: datetime
+    generated_by: UUID

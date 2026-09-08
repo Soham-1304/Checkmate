@@ -10,6 +10,7 @@ from app.api.v1.dashboard import router as dashboard_router
 from app.api.v1.declarations import router as declarations_router
 from app.api.v1.evidence import router as evidence_router
 from app.api.v1.inspections import router as inspections_router
+from app.api.v1.reports import router as reports_router
 
 api_router = APIRouter()
 
@@ -23,4 +24,5 @@ api_router.include_router(inspections_router)
 api_router.include_router(evidence_router)
 api_router.include_router(declarations_router)
 api_router.include_router(compliance_router)
+api_router.include_router(reports_router)
 api_router.include_router(dashboard_router)

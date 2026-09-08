@@ -1,5 +1,6 @@
 from typing import List
 from uuid import UUID
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,6 +11,8 @@ from app.models.user import User
 from app.models.workflow import Inspection
 from app.schemas.inspection import FindingOut, FindingUpdate
 from app.services.compliance_service import run_compliance_evaluation
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/inspections", tags=["Compliance & Evaluation"])
 
@@ -37,11 +40,23 @@ async def evaluate_inspection(
     db.add(audit)
     await db.commit()
 
+    report_id = None
+    try:
+        from app.services import report_service
+
+        report = await report_service.render_inspection_report(
+            db, inspection_id, current_user.id
+        )
+        report_id = report.id
+    except Exception as exc:
+        logger.warning("evaluate: auto-report render failed for %s: %s", inspection_id, exc)
+
     return {
         "success": True,
         "inspection_id": inspection_id,
         "compliance_result": overall,
         "findings_count": len(findings),
+        "report_id": report_id,
     }
 
 

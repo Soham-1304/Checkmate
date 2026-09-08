@@ -9,10 +9,10 @@
 
 | # | Task | Status | Notes |
 |---|---|---|---|
-| B0.1 | Supabase Postgres live wiring (`DATABASE_URL`, pooler 6543 + `ssl=require`) | 🔴 REMAINING | You drop creds in `DoCA/.env`; config reads `.env` (`core/config.py:7-12`). asyncpg + pgbouncer needs `statement_cache_size=0` check |
-| B0.2 | Alembic baseline (`versions/*.py`) + `upgrade head` on Supabase | 🔴 REMAINING | No migration files exist today |
+| B0.1 | Supabase Postgres live wiring (`DATABASE_URL`, pooler 6543 + `ssl=require`) | 🟢 DONE | Live since B1 (pooler URL in `DoCA/.env`, `.env` copied to backend) |
+| B0.2 | Alembic baseline (`versions/*.py`) + `upgrade head` on Supabase | 🟢 DONE | Baseline `88c640d9032f` + b3/b5 applied live |
 | B0.3 | Run `seed_gazette.py` (rule set `LM-PCR-2011-v1.0` + field defs) + verify | 🟡 SCAFFOLDED | Script exists, never executed live |
-| B0.4 | Smoke test: `/health`, `/api/v1/auth/login`, `/api/v1/dashboard/summary` | 🔴 REMAINING | Acceptance gate for frontend teams |
+| B0.4 | Smoke test: `/health`, `/api/v1/auth/login`, `/api/v1/dashboard/summary` | 🟢 DONE | Verified live every milestone (health 200 + logins) |
 | B0.5 | CORS for web (`localhost:3000`) + RN (Expo Go, device IPs) | 🟡 SCAFFOLDED | Origins hardcoded in `core/config.py:21-26` — must become env-driven |
 
 ## 1. Auth & Users (both apps need; admin needs CRUD)
@@ -42,7 +42,7 @@
 | `PATCH /api/v1/inspections/{id}` (physical_quantity/unit for MPE) | 🟡 SCAFFOLDED | Accepts fields, no MPE math (First Schedule 🔴) |
 | `POST .../submit` (→ UNDER_REVIEW) | 🟡 SCAFFOLDED | `inspections.py:142-169` ✅ |
 | `GET /api/v1/inspections?status=&limit=&offset=` (My Inspections; officers auto-scoped to self) | 🟡 SCAFFOLDED | `inspections.py:65-86` — needs pagination envelope + search for RN (`?q=`) |
-| `GET /api/v1/dashboard/officer` (today's count, pending, completion %, activity) | 🔴 REMAINING | Nothing — RN mocks until then |
+| `GET /api/v1/dashboard/officer` (today's count, pending, completion %, activity) | 🟢 DONE (B4 live, dup row) | See row 35 |
 
 ## 3. Admin Dashboard flow (A): dashboard → inspections → detail/review → violations → reports → history → users/rules
 
@@ -53,7 +53,7 @@
 | `GET /api/v1/dashboard/admin` (volume trend, compliance %, recidivism/repeat offenders, AI low-conf rate + override rate, workload/officer, geo by district/state) | 🟢 DONE (B5 live) | `dashboard.py` — runtime SQL, `can_view_admin_kpis`, `?days=` zero-filled trend |
 | `GET /api/v1/inspections/{id}` full detail (evidence+declarations+findings) | 🟡 SCAFFOLDED | `inspections.py:89-115` ✅ |
 | `POST /api/v1/inspections/{id}/review` (APPROVED_COMPLIANT / NON_COMPLIANT / RETURNED) | 🟡 SCAFFOLDED | `inspections.py:172-217`, REVIEWER+ only ✅ |
-| `POST /api/v1/inspections/{id}/report` + `GET .../report` (Form A/B PDF, WeasyPrint+Jinja2, embed images) | 🔴 REMAINING | No `reports.py` router |
+| `POST /api/v1/inspections/{id}/report` + `GET .../report` (Form A/B PDF, WeasyPrint+Jinja2, embed images) | 🟢 DONE (B6 live) | `reports.py` + `report_service` — auto-render on evaluate, `Bluetick_Report_Store`, fresh presigned URL per read |
 | `GET /api/v1/repository/search` (brand, manufacturer, commodity, barcode, date, officer, violation) + CSV/Excel export | 🔴 REMAINING | No code |
 | `GET /api/v1/audit-events?entity_type=&entity_id=` | 🔴 REMAINING | Events written (`INSPECTION_CREATED/SUBMITTED`, `EVIDENCE_UPLOADED`, `DECLARATION_CORRECTED`, `FINDING_REVIEWED`, `FINAL_DECISION_RECORDED`) but no query endpoint |
 | Rules read-only (`GET /api/v1/rule-sets`, requirements) | 🟢 DONE (B3 live) | `rule_sets.py` — list/active/detail; version banner for admin UI; model-guy v2 surface |
@@ -99,3 +99,4 @@ B5 MPE + Second Schedule validators                      [compliance depth]
 - 2026-09-08: B3 DONE — RBAC capabilities + users + refresh + rulebook. `require_capability(*caps)` (`deps.py`, SUPERADMIN bypass) + seeds aligned to §1.1 matrix (live-updated). Users CRUD (`users.py`, `can_manage_users`): 201 create, list w/ role/active/q, get, patch (self-deactivate + self-role-change + SUPERADMIN-via-API blocked, 409 dup). Refresh rotation: `refresh_tokens` table (alembic `b3_refresh_tokens`, applied live), login issues pair, `/refresh` rotates, reuse → 401 + whole chain revoked, `/logout` 204. Rule-sets read (`rule_sets.py`: list/active/detail). Docs: `docs/RULEBOOK_v1.md` (clean 10-req extraction + gaps) + `docs/RULEBOOK_CONTRACT.md` (ingest schema, check_logic types, v2 drop-in). E2E live (403s, rotation, reuse-kill, 400/409/422 guards, logout) → test user cleaned (users=3).
 - 2026-09-08: B4 DONE — assignments + master data + officer dashboard (14 routes). `masters.py`: entities/brands/commodities CRUD, nested brands/commodities, `search?barcode=` exact + `q`/`category` (search before `/{id}`), 409 dup barcode, 422 bad FK; officer read-only, `can_manage_master_data` write. `assignments.py`: `my-checklist` (open, due-ordered), admin allocate/list/reassign/cancel (soft), officer transitions ASSIGNED→IN_PROGRESS→COMPLETED enforced (422 bad jump), cancel-completed 400. `GET /dashboard/officer`: today_count, pending, completion_rate, recent 5. Fixed en route: double-wrapped `Depends()` broke router import. E2E live (403s, 409, 422, full lifecycle IN_PROGRESS→COMPLETED→reopen→CANCELLED) → test data cleaned (assignments=5, commodities=8 intact).
 - 2026-09-08: B5 DONE — admin KPIs + indexes. `GET /dashboard/admin?days=` (`can_view_admin_kpis`): zero-filled volume trend, compliance+pass_rate, repeat offenders (HAVING>1), AI quality (low-conf/override rates), workload/officer, geo by state/district (JSONB), sectors w/ fail share. Migration `b5_kpi_indexes` (7 indexes, IF NOT EXISTS, applied live). Fixed en route: Postgres GROUP BY param quirk via labeled expressions. E2E live with 1 FAIL inspection (all 7 blocks correct, officer 403) → cleaned.
+- 2026-09-09: B6 DONE — auto-generated inspection PDF report. `report_service` (context gather + Jinja2 + WeasyPrint 69, `inspection_report.html.j2` v1, 8 sections) + `reports.py` (GET lazy-generates, POST re-renders 201; `can_view_own_reports` + own/all scoping) + auto-render inside `evaluate` (non-fatal, returns `report_id`) + `REPORT_GENERATED` audit + `storage.download_bytes` helper + `docs/REPORT_CONTRACT.md` + spec `docs/superpowers/specs/2026-09-09-b6-inspection-report-design.md`. Fixed en route: storage_service line-join corruption, jinja2 `select_autoescape` name, pkill self-kill (bracket trick), WeasyPrint macOS libs (`brew install pango cairo gdk-pixbuf libffi glib` + `DYLD_FALLBACK_LIBRARY_PATH`). E2E live: evaluate→auto-report, officer/admin 200, 401/404 guards, presigned fetch 59KB valid 2-page PDF (all sections verified via text extraction) → cleaned (both buckets + rows). Tracker housekeeping: B0.1/B0.2/B0.4 + dup officer-dash rows flipped DONE.

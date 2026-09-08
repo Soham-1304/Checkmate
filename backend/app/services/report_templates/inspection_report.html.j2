@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: A4; margin: 18mm 15mm; @bottom-center { content: "System-generated report · Template " counter(page) " of " counter(pages); font-size: 8pt; color: #666; } }
+  body { font-family: Helvetica, Arial, sans-serif; font-size: 10pt; color: #111; }
+  .hdr { text-align: center; border-bottom: 3px double #111; padding-bottom: 8px; margin-bottom: 14px; }
+  .hdr h1 { font-size: 15pt; margin: 0; }
+  .hdr p { font-size: 9pt; margin: 2px 0; color: #333; }
+  h2 { font-size: 12pt; background: #eee; padding: 4px 8px; margin: 16px 0 6px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+  th, td { border: 1px solid #999; padding: 4px 6px; text-align: left; vertical-align: top; }
+  th { background: #f2f2f2; }
+  .kv td:first-child { width: 32%; font-weight: bold; background: #fafafa; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 8px; font-weight: bold; font-size: 9pt; }
+  .PASS { background: #d4edda; } .FAIL { background: #f8d7da; }
+  .REVIEW { background: #fff3cd; } .NOT_APPLICABLE { background: #e2e3e5; }
+  .low { color: #a00; font-weight: bold; }
+  .thumbs img { width: 220px; margin: 4px 8px 4px 0; border: 1px solid #999; }
+  .sign { margin-top: 26px; display: flex; justify-content: space-between; }
+  .sign div { width: 45%; border-top: 1px solid #111; padding-top: 4px; font-size: 9pt; }
+  .muted { color: #555; font-size: 9pt; }
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <h1>Department of Consumer Affairs — Legal Metrology</h1>
+  <p>Inspection Report (System-Generated Prototype · Template {{ template_version }})</p>
+  <p>Inspection ID: {{ inspection.id }} &nbsp;|&nbsp; Generated: {{ generated_at }} &nbsp;|&nbsp; Rulebook: {{ rule_set_version }}</p>
+</div>
+
+<p>Overall result: <span class="pill {{ inspection.compliance_result }}">{{ inspection.compliance_result }}</span>
+&nbsp;&nbsp;Final decision: <strong>{{ inspection.final_decision }}</strong>
+&nbsp;&nbsp;Status: <strong>{{ inspection.status }}</strong></p>
+
+<h2>1. Inspection Particulars</h2>
+<table class="kv">
+  <tr><td>Inspecting Officer</td><td>{{ officer.name }} ({{ officer.employee_id }}, {{ officer.email }})</td></tr>
+  <tr><td>Inspection Date</td><td>{{ inspection.created_at }}</td></tr>
+  <tr><td>Submitted</td><td>{{ inspection.submitted_at }}</td></tr>
+  <tr><td>Location</td><td>{{ inspection.location }}</td></tr>
+  <tr><td>Physical Sample</td><td>{{ inspection.physical_sample }}</td></tr>
+  <tr><td>Context Notes</td><td>{{ inspection.context_notes }}</td></tr>
+</table>
+
+<h2>2. Commodity &amp; Parties</h2>
+<table class="kv">
+  <tr><td>Commodity</td><td>{{ commodity.generic_name }} ({{ commodity.category }})</td></tr>
+  <tr><td>Brand</td><td>{{ brand }}</td></tr>
+  <tr><td>Manufacturer / Packer / Importer</td><td>{{ entity.legal_name }} [{{ entity.type }}], {{ entity.address }}</td></tr>
+  <tr><td>Barcode / SKU</td><td>{{ commodity.barcode }} / {{ commodity.sku }}</td></tr>
+  <tr><td>Package</td><td>{{ commodity.package_type }}, {{ commodity.pack_size }}</td></tr>
+</table>
+
+<h2>3. Evidence Photographs</h2>
+<div class="thumbs">
+{% for ev in evidence %}
+  <div>
+    {% if ev.image_b64 %}<img src="data:{{ ev.mime_type }};base64,{{ ev.image_b64 }}">{% else %}<p class="muted">[image unavailable]</p>{% endif %}
+    <p class="muted">{{ ev.view_type }} · {{ ev.uploaded_at }}</p>
+  </div>
+{% else %}<p class="muted">No evidence on record.</p>{% endfor %}
+</div>
+
+<h2>4. Declarations (AI Extraction vs Officer Verification)</h2>
+<table>
+  <tr><th>Field</th><th>Machine Value</th><th>Officer Value</th><th>Confidence</th></tr>
+{% for d in declarations %}
+  <tr>
+    <td>{{ d.field }}</td>
+    <td>{{ d.machine_value }}</td>
+    <td>{{ d.officer_value }}{% if d.corrected %} *{% endif %}</td>
+    <td>{% if d.confidence is none %}—{% elif d.low_conf %}<span class="low">{{ '%.2f' % d.confidence }} LOW</span>{% else %}{{ '%.2f' % d.confidence }}{% endif %}</td>
+  </tr>
+{% else %}<tr><td colspan="4" class="muted">No declarations on record.</td></tr>{% endfor %}
+</table>
+<p class="muted">* officer-corrected value (machine value preserved in system).</p>
+
+<h2>5. Rule Evaluation</h2>
+<table>
+  <tr><th>Rule</th><th>Requirement</th><th>Severity</th><th>Result</th></tr>
+{% for e in evaluations %}
+  <tr><td>{{ e.rule_ref }}</td><td>{{ e.title }}</td><td>{{ e.severity }}</td>
+  <td><span class="pill {{ e.result }}">{{ e.result }}</span></td></tr>
+{% else %}<tr><td colspan="4" class="muted">Not evaluated.</td></tr>{% endfor %}
+</table>
+
+<h2>6. Findings / Contraventions</h2>
+<table>
+  <tr><th>#</th><th>Severity</th><th>Finding</th><th>Legal Reference</th><th>Officer Review</th></tr>
+{% for f in findings %}
+  <tr><td>{{ loop.index }}</td><td>{{ f.severity }}</td>
+  <td><strong>{{ f.title }}</strong><br>{{ f.explanation }}</td>
+  <td>{{ f.legal_reference }}</td>
+  <td>{% if f.officer_accepted is none %}Pending{% elif f.officer_accepted %}Accepted{% else %}Rejected{% endif %}{% if f.officer_note != '—' %}<br>{{ f.officer_note }}{% endif %}</td></tr>
+{% else %}<tr><td colspan="5" class="muted">No findings — no contraventions detected.</td></tr>{% endfor %}
+</table>
+
+<h2>7. Audit Trail</h2>
+<table>
+  <tr><th>Action</th><th>Actor</th><th>At</th></tr>
+{% for a in audit_trail %}
+  <tr><td>{{ a.action }}</td><td>{{ a.actor_id }}</td><td>{{ a.at }}</td></tr>
+{% else %}<tr><td colspan="3" class="muted">No audit events.</td></tr>{% endfor %}
+</table>
+
+<div class="sign">
+  <div>Signature of Inspecting Officer<br>{{ officer.name }}, {{ officer.employee_id }}<br>Date: {{ generated_at }}</div>
+  <div>Countersignature (Controlling Authority)<br><br>Date: ______________</div>
+</div>
+
+</body>
+</html>

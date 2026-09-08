@@ -63,3 +63,12 @@ def presigned_url(object_name: str, bucket: str) -> str:
         )
         return res.get("signedURL") or res.get("signedUrl") or ""
     return f"/uploads/{object_name.replace('/', '_')}"
+
+
+def download_bytes(object_name: str, bucket: str) -> bytes:
+    if settings.STORAGE_BACKEND == "supabase":
+        client = _supabase_client()
+        return client.storage.from_(bucket).download(object_name)
+    flat = object_name.replace("/", "_")
+    with open(os.path.join(UPLOAD_DIR, flat), "rb") as f:
+        return f.read()
