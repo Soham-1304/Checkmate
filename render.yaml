@@ -1,0 +1,30 @@
+# Render blueprint: single Docker web service (backend + in-process OCR).
+# Instance sizing: Starter (1GB) fits (~540MB OCR peak + backend), but Standard
+# (2GB) is recommended for demo safety — concurrent OCR + PDF render spikes.
+# The EasyOCR/torch worker is deliberately NOT in this image; it runs
+# off-server via the async PUT contract when needed.
+services:
+  - type: web
+    name: doca-backend
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: standard # downgrade to starter only after load-testing YOUR packs
+    healthCheckPath: /api/v1/openapi.json
+    envVars:
+      - key: DATABASE_URL
+        sync: false # Supabase pooler URL
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: SUPABASE_BUCKET_EVIDENCE
+        value: Bluetick_Image_Store
+      - key: SUPABASE_BUCKET_REPORTS
+        value: Bluetick_Report_Store
+      - key: STORAGE_BACKEND
+        value: supabase
+      - key: SECRET_KEY
+        generateValue: true
+      - key: BACKEND_CORS_ORIGINS
+        sync: false # comma-separated: admin + officer-app origins

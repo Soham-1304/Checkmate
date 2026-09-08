@@ -76,7 +76,23 @@ evaluated, remaining 9 keys REVIEW ("requires officer confirmation"), overall
 REVIEW — the officer corrects in-app, re-evaluates, verdict firms up. That
 human-in-the-loop arc IS the demo story.
 
-## 7. Deferred (post-demo, in order)
+## 8. Server-side OCR (Render deploy path — OCR lives on the server)
+
+`POST /api/v1/inspections/{id}/analyze-auto?pkg_height_mm=150` (officer JWT):
+creates the run, downloads evidence server-side, extracts in-process with
+RapidOCR (onnxruntime, ~150MB, CPU seconds, ~540MB peak — fits a 1–2GB Render
+instance), ingests the same 12 canonical keys, returns `COMPLETED` in one call.
+Implementation: `backend/app/services/ocr_service.py` + endpoint in
+`app/api/v1/analysis.py`. Verified live on oats: 1 image → 12 declarations
+(`100g` @0.99 HIGH, MRP UNDETECTED) → verdict REVIEW, report auto-rendered.
+
+Deploy: `Dockerfile` (python:3.12-slim + WeasyPrint apt libs + RapidOCR model
+warmup, runs `alembic upgrade head` on boot) + `render.yaml` (single Docker web
+service, plan `standard` for demo safety). The heavy EasyOCR/torch bridge
+(`AI_ML/`) stays valid via the unchanged async PUT contract for Hindi-heavy
+packs later — it is NOT in the server image, keeping it slim.
+
+## 9. Deferred (post-demo, in order)
 
 1. Clearance-zone measurement (bbox-gap heuristic) → real Rule 8.
 2. Field-level regex mining for `mfg_date`/`consumer_care`/address+PIN from OCR lines (cuts REVIEW count without new models).

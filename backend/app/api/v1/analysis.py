@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+import asyncio
+import logging
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import EntityNotFoundException
@@ -15,6 +17,9 @@ from app.schemas.inspection import (
     AnalyzeRequest,
     DeclarationIngestRequest,
 )
+from app.services import ocr_service, storage_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/inspections", tags=["ML Analysis"])
 
@@ -188,3 +193,69 @@ async def ingest_declarations(
         db.add(AuditEvent(actor_id=current_user.id, action="ANALYSIS_FAILED", entity_type="ANALYSIS_RUN", entity_id=run.id, new_value={"error": str(exc)[:200]}))
         await db.commit()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Declaration ingestion failed.")
+
+
+@router.post("/{inspection_id}/analyze-auto", tags=["ML Analysis"])
+async def analyze_auto(
+    inspection_id: UUID,
+    response: Response,
+    pkg_height_mm: float = Query(default=150.0, gt=0, le=2000),
+    pipeline_version: str = Query(default="server-rapidocr-1.0"),
+    model_version: str = Query(default="rapidocr-onnx-1.4"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Server-side extraction: creates the run, OCRs evidence in-process
+    (RapidOCR, CPU seconds), and ingests the 12 canonical declarations —
+    one call from upload to COMPLETED. Heavy-model workers keep using the
+    async PUT contract unchanged."""
+    run = await trigger_analyze(
+        inspection_id, response,
+        AnalyzeRequest(pipeline_version=pipeline_version, model_version=model_version),
+        db, current_user,
+    )
+
+    ev_rows = (await db.execute(
+        select(Evidence).where(Evidence.inspection_id == inspection_id))).scalars().all()
+    if not ev_rows:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Upload at least one evidence image before analyze.")
+
+    from app.core.config import settings
+
+    results, ev_ids, raw_images = [], [], []
+    for ev in ev_rows:
+        try:
+            data = await asyncio.to_thread(
+                storage_service.download_bytes, ev.file_key, settings.SUPABASE_BUCKET_EVIDENCE)
+            res = await asyncio.to_thread(ocr_service.extract_image, data, pkg_height_mm)
+        except Exception as exc:
+            logger.warning("auto-extract failed for evidence %s: %s", ev.id, exc)
+            continue
+        results.append(res)
+        ev_ids.append(ev.id)
+        raw_images.append({"evidence_id": str(ev.id), "view_type": ev.view_type,
+                           "avg_confidence": res["avg_confidence"],
+                           "lines": [{k: l[k] for k in ("text", "confidence", "bbox", "script")}
+                                     for l in res["lines"]]})
+
+    if not results:
+        run.status = "FAILED"
+        run.error_detail = "Server-side OCR extracted nothing from any evidence image."
+        await db.commit()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                            detail="Server-side OCR extracted nothing.")
+
+    declarations = ocr_service.build_declarations(results, ev_ids)
+    out = await ingest_declarations(
+        inspection_id, run.id,
+        DeclarationIngestRequest(
+            declarations=declarations,
+            raw_ocr_output={"engine": "rapidocr-onnxruntime",
+                            "pipeline_version": pipeline_version, "images": raw_images}),
+        db, current_user,
+    )
+    return {"success": True, "run_id": run.id, "status": "COMPLETED",
+            "images_processed": len(results),
+            "avg_confidence": round(sum(r["avg_confidence"] for r in results) / len(results), 4),
+            "ingest": out}
