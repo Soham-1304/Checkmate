@@ -39,7 +39,7 @@
 | `GET /api/v1/inspections/{id}/declarations` + `PATCH .../declarations/{did}` (officer correction, keep `machine_value`) | 🟢 DONE | `declarations.py` ✅ incl. audit; B2 ingestion writes `machine_value` side |
 | `POST .../analyze` + `GET .../analysis-runs/{rid}` + `PUT .../analysis-runs/{rid}/declarations` (ML async callback, officer JWT) | 🟢 DONE (B2 live) | `analysis.py` — QUEUED→RUNNING→COMPLETED/FAILED, strict 422 validation, evidence-required guard |
 | `POST .../evaluate` + `GET .../findings` + `PATCH .../findings/{fid}` (accept/note) | 🟢 DONE (B2 live) | `compliance.py` + `compliance_service` — Rule 3 bulk applicability (NOT_APPLICABLE) + global low-conf<0.60→REVIEW |
-| `PATCH /api/v1/inspections/{id}` (physical_quantity/unit for MPE) | 🟡 SCAFFOLDED | Accepts fields, no MPE math (First Schedule 🔴) |
+| `PATCH /api/v1/inspections/{id}` (physical_quantity/unit for MPE) | 🟢 DONE (B8 live) | Fields drive First Schedule MPE math in `evaluate` |
 | `POST .../submit` (→ UNDER_REVIEW) | 🟡 SCAFFOLDED | `inspections.py:142-169` ✅ |
 | `GET /api/v1/inspections?status=&limit=&offset=` (My Inspections; officers auto-scoped to self) | 🟡 SCAFFOLDED | `inspections.py:65-86` — needs pagination envelope + search for RN (`?q=`) |
 | `GET /api/v1/dashboard/officer` (today's count, pending, completion %, activity) | 🟢 DONE (B4 live, dup row) | See row 35 |
@@ -62,7 +62,7 @@
 
 - **Today:** `POST .../evidence` writes `backend/uploads/<inspection>_<rand>.jpg`, returns `file_key=evidence/...`, `file_url=/uploads/...`, static mount in `main.py:40-41`. Valid mimes jpg/png/webp (`evidence.py:38-44`). No size cap, no MinIO SDK, no cleanup.
 - **Target (Supabase):** buckets `doca-evidence` (private, presigned GET 1h for RN `<Image>`) + `doca-reports` (private, presigned for admin download). Keep `file_key`/`file_url` shape; add `upload_method: direct|presigned`, `expires_at`.
-- **Tasks:** 🔴 storage client wrapper (`services/storage_service.py`) with local↔Supabase switch via env; 🔴 presigned upload path for big RN photos (camera 3–8MB); 🔴 mime+size validation shared; 🔴 report PDF put/get.
+- **Tasks:** 🟢 storage client wrapper (`services/storage_service.py`) with local↔Supabase switch via env (B1 live); 🟢 multipart evidence upload + mime+size validation shared (B1 live); 🟢 report PDF put/get (B6 live).
 
 ## 5. Risks
 
