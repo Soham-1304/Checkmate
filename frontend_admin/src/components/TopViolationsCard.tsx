@@ -1,12 +1,14 @@
 import React from 'react';
 import { AlertOctagon, ArrowRight } from 'lucide-react';
 import { TOP_VIOLATIONS } from '../data/mockData';
+import { useLiveTopViolations } from '../api/useLiveData';
 
 interface TopViolationsCardProps {
   onViewAnalytics?: () => void;
 }
 
 export const TopViolationsCard: React.FC<TopViolationsCardProps> = ({ onViewAnalytics }) => {
+  const { data: violations } = useLiveTopViolations(TOP_VIOLATIONS);
   return (
     <div className="bg-white rounded-3xl p-6 border border-[#8EC8BA]/40 shadow-xs flex flex-col justify-between h-full">
       <div>
@@ -23,7 +25,7 @@ export const TopViolationsCard: React.FC<TopViolationsCardProps> = ({ onViewAnal
 
         {/* Progress Bars */}
         <div className="space-y-3.5">
-          {TOP_VIOLATIONS.map((violation) => (
+          {violations.map((violation) => (
             <div key={violation.title} className="space-y-1">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-semibold text-slate-700 truncate pr-2">

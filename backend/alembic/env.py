@@ -11,12 +11,14 @@ from alembic import context
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-for _line in open(os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", ".env")):
-    _s = _line.strip()
-    if not _s or _s.startswith("#") or "=" not in _s:
-        continue
-    _k, _v = _s.split("=", 1)
-    os.environ.setdefault(_k.strip(), _v.strip().strip('"').strip("'"))
+_env_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", ".env")
+if os.path.exists(_env_file):  # Render/Docker pass real env vars; .env is local-dev only
+    for _line in open(_env_file):
+        _s = _line.strip()
+        if not _s or _s.startswith("#") or "=" not in _s:
+            continue
+        _k, _v = _s.split("=", 1)
+        os.environ.setdefault(_k.strip(), _v.strip().strip('"').strip("'"))
 
 from app.core.config import settings
 from app.db.session import Base

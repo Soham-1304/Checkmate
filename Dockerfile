@@ -17,8 +17,11 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 
 COPY backend/ ./
 
-# Warm the RapidOCR model cache at build time so first request is fast.
+# Warm the RapidOCR model cache at build time so first request is fast,
+# then smoke-import the app so a broken dependency fails the BUILD, not boot.
 RUN python -c "from rapidocr_onnxruntime import RapidOCR; RapidOCR()" || true
+RUN python -c "import app.main; print('app imports clean')"
+RUN python -c "import importlib.metadata as m; assert m.version('bcrypt').startswith('4.'); from app.core import security as s; h=s.get_password_hash('Officer@12345'); assert s.verify_password('Officer@12345', h); print('auth roundtrip ok')"
 
 EXPOSE 8000
 CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]

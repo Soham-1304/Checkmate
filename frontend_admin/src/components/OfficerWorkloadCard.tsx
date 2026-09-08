@@ -1,12 +1,14 @@
 import React from 'react';
 import { Users, ArrowRight } from 'lucide-react';
 import { OFFICER_WORKLOAD } from '../data/mockData';
+import { useLiveOfficerWorkload } from '../api/useLiveData';
 
 interface OfficerWorkloadCardProps {
   onManageOfficers?: () => void;
 }
 
 export const OfficerWorkloadCard: React.FC<OfficerWorkloadCardProps> = ({ onManageOfficers }) => {
+  const { data: officers } = useLiveOfficerWorkload(OFFICER_WORKLOAD);
   return (
     <div className="bg-white rounded-3xl p-6 border border-[#8EC8BA]/40 shadow-xs flex flex-col justify-between h-full">
       <div>
@@ -23,7 +25,7 @@ export const OfficerWorkloadCard: React.FC<OfficerWorkloadCardProps> = ({ onMana
 
         {/* Officers List */}
         <div className="space-y-4">
-          {OFFICER_WORKLOAD.map((officer) => (
+          {officers.map((officer) => (
             <div key={officer.id} className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">

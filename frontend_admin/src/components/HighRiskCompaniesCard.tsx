@@ -1,12 +1,14 @@
 import React from 'react';
 import { Building2, ArrowRight } from 'lucide-react';
 import { HIGH_RISK_COMPANIES } from '../data/mockData';
+import { useLiveHighRisk } from '../api/useLiveData';
 
 interface HighRiskCompaniesCardProps {
   onViewAll?: () => void;
 }
 
 export const HighRiskCompaniesCard: React.FC<HighRiskCompaniesCardProps> = ({ onViewAll }) => {
+  const { data: companies } = useLiveHighRisk(HIGH_RISK_COMPANIES);
   return (
     <div className="bg-white rounded-3xl p-6 border border-[#8EC8BA]/40 shadow-xs flex flex-col justify-between h-full">
       <div>
@@ -34,7 +36,7 @@ export const HighRiskCompaniesCard: React.FC<HighRiskCompaniesCardProps> = ({ on
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50 font-medium">
-              {HIGH_RISK_COMPANIES.map((company) => (
+              {companies.map((company) => (
                 <tr key={company.rank} className="hover:bg-[#E5F0EC]/40 transition-colors">
                   <td className="py-2.5 text-slate-400 font-medium">{company.rank}</td>
                   <td className="py-2.5 text-slate-800 font-bold truncate max-w-[120px]">

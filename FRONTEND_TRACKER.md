@@ -1,70 +1,72 @@
 # DoCA PS-26034 Frontend Tracker — Done vs Remaining
 
-> **Source of truth:** `DoCA/STATUS_AND_ROADMAP.md` (Backend audit Sep 2026) + `docs/SIH - 2026/SIH26034_UIUX_Design_Brief` + `DoCA/ARCHITECTURE.md`
-> **Updated:** 2026-09-07 | **Owner:** opencode + Soham
-> **Rule:** Update this file on every frontend change. Keep statuses: 🟢 DONE / 🟡 SCAFFOLDED / 🔴 REMAINING.
+> **Source of truth:** `DoCA/STATUS_AND_ROADMAP.md` (2026-09-09 audit) + `DoCA/ARCHITECTURE.md` + UI/UX Brief
+> **Updated:** 2026-09-09 | **Backend is LIVE since B3** — the old "backend not ready, use mocks" gate is gone.
+> **Legend:** 🟢 DONE (wired to live API + typecheck) / 🟡 PARTIAL (works, mock or gaps) / 🔴 REMAINING.
+> **Rule:** update on every frontend change. Repos: `frontend_app/` (Expo RN officer app), `frontend_admin/` (Vite+React admin).
 
-## 0. Backend dependency map (what frontend can call TODAY)
+## 0. Backend live-status (what FE can call TODAY)
 
-| Backend endpoint | Status | Usable by frontend? |
+All 🟢 live & verified on the running backend — see `BACKEND_TRACKER.md` B0–B8. Auth creds + env in `SUPABASE_SETUP.md`. Logins: `officer@doca.gov.in` / `admin@doca.gov.in`.
+
+| Backend area | Status | Used by |
 |---|---|---|
-| `POST /auth/login`, `/auth/login/json`, `GET /auth/me` | 🟡 Scaffolded, needs live DB check | Yes — after Supabase wiring |
-| `GET /dashboard/summary`, `GET /dashboard/violations` | 🟡 Scaffolded | Yes — basic counts only |
-| `POST /inspections`, `POST /inspections/{id}/evidence`, `PATCH /declarations/{id}`, `POST /inspections/{id}/submit`, `POST /inspections/{id}/review` | 🟡 Scaffolded (local /uploads, no MinIO, no MPE) | Yes — happy path only |
-| `GET /dashboard/officer`, `GET /dashboard/admin`, `/api/v1/users`, `/api/v1/commodities`, `/api/v1/entities`, `/commodities/search?barcode=`, `/api/v1/assignments`, `/api/v1/assignments/my-checklist`, `/inspections/{id}/report`, `/api/v1/repository/search`, `/api/v1/audit-events`, Alembic, pytest | 🔴 Remaining | No — mock / stub on frontend until backend lands |
+| Auth (login/json, me, refresh, logout) | 🟢 | both apps |
+| Users CRUD + role capability guards | 🟢 | admin |
+| Assignments CRUD + my-checklist | 🟢 | officer |
+| Commodities/entities/brands CRUD + barcode search | 🟢 (11 commodities) | officer, admin |
+| Inspections CRUD + evidence upload + declarations PATCH | 🟢 | officer |
+| **analyze-auto** (server-side RapidOCR) + evaluate + findings | 🟢 | officer |
+| Dashboard officer + admin (days=) | 🟢 | officer, admin |
+| Report PDF (GET presigned) + repository search + CSV + audit | 🟢 | both |
 
-**Backend live-wiring gate:** Supabase Postgres URL in `.env` → Alembic migrate → `seed_gazette.py` → verify `/auth/login` + `/dashboard/summary`. Frontend uses mocks until then.
+## 1. Officer Mobile App — `frontend_app/` (Expo RN, expo-router, zustand, axios)
 
-## 1. Web Admin Portal (`DoCA/frontend-web/`) — 🔴 0% (not scaffolded)
-
-Reference: UI/UX Brief §5 — Dashboard, Inspections, Inspection Detail, Violations/Cases, Reports, History, Users & Roles, Rules/Config.
-
-| Page | Status | Backend it needs | Notes |
+| Screen | Status | Backend used | Notes |
 |---|---|---|---|
-| Login + JWT store + role guard (OFFICER/REVIEWER/ADMIN) | 🔴 REMAINING | `/auth/login`, `/auth/me` | First build; blocks all else |
-| Admin Dashboard (counts, compliance %, trends, recidivism, workload, geo) | 🔴 REMAINING | `/dashboard/summary` ✅ today; `/dashboard/admin` 🔴 | Build with real summary + mocked advanced KPI cards |
-| Inspections list (filter: date, product, status, officer, outcome) | 🔴 REMAINING | scaffolded list (check `inspections.py`) | — |
-| Inspection Detail (images, declarations, findings, remarks, review actions) | 🔴 REMAINING | scaffolded review endpoints | Approve / Non-compliant / Return buttons |
-| Violations / Cases | 🔴 REMAINING | `/dashboard/violations` ✅ today | — |
-| Reports (generate Form A/B, download) | 🔴 REMAINING | `/inspections/{id}/report` 🔴 | Stub download button, mock PDF |
-| Product/Inspection History + Repository search (brand, barcode, date, officer, violation) | 🔴 REMAINING | `/api/v1/repository/search` 🔴 | Mock filter UI first |
-| Users & Roles CRUD | 🔴 REMAINING | `/api/v1/users` 🔴 | Mock table first |
-| Rules / Configuration viewer | 🔴 REMAINING | `rule_sets` read-only | Read-only version banner `LM-PCR-2011-v1.0` |
-| Shared: API client, auth context, layout, toasts, empty/error states | 🔴 REMAINING | — | — |
+| Login | 🟢 | `/auth/login/json`, `/auth/me` | JWT in SecureStore; refresh on plan |
+| Inspections (list, filters, pagination) | 🟢 | `/inspections`, `/commodities` | maps commodity ids → names |
+| **Scanner (capture → result)** | 🟢 | `/commodities`, `POST /inspections`, `POST .../evidence`, `POST .../analyze-auto`, `POST .../evaluate` | commodity picker sheet; busy overlay; navigates to real result |
+| Analysis result + findings + report | 🟢 | `/inspections/{id}`, `.../report` | "View Full Report" opens presigned PDF |
+| Dashboard (home) | 🟡 | none yet — local `statsStore` mock | `expo-image-picker` import wired; `/dashboard/officer` not consumed |
+| Entities | 🔴 | — | static screen |
+| Standards | 🔴 | — | static screen |
+| Notifications | 🔴 | — | static screen |
+| Help / Settings | 🔴 | — | static screens |
+| TypeScript | 🟡 | — | 1 pre-existing err `(tabs)/index.tsx:84` `contentContainer` |
 
-## 2. Officer Mobile App (`DoCA/mobile/`) — 🔴 0% (not scaffolded)
+**Wiring note:** API layer (`src/api/{client,endpoints,doca}.ts`) is complete — base URL via `EXPO_PUBLIC_API_BASE_URL` (default `http://10.0.2.2:8000/api/v1`), axios auth interceptor + retry, typed helpers for every flow.
 
-Reference: UI/UX Brief §4 — Login, Officer Dashboard, New Inspection, Capture/Upload, Review, Compliance Result, Violation Details, Submit, My Inspections.
+## 2. Web Admin Portal — `frontend_admin/` (Vite + React + Tailwind + recharts)
 
-| Screen | Status | Backend it needs | Notes |
+| Area | Status | Backend used | Notes |
 |---|---|---|---|
-| Login | 🔴 REMAINING | `/auth/login` | — |
-| Officer Dashboard (today's, pending, quick New) | 🔴 REMAINING | `/dashboard/officer` + `/assignments/my-checklist` 🔴 | Mock checklist until backend lands |
-| New Inspection (select commodity / barcode scan) | 🔴 REMAINING | `/commodities/search?barcode=` 🔴 | Manual entry fallback |
-| Capture / Upload (2–3 images: FRONT_PDP, BACK_PANEL, SIDE_PANEL) | 🔴 REMAINING | `POST /inspections/{id}/evidence` 🟡 | Multipart upload |
-| Inspection Review (confirm/correct declarations, preserve machine_value) | 🔴 REMAINING | `PATCH /declarations/{id}` 🟡 | Show confidence badge |
-| Compliance Result (PASS/FAIL/REVIEW) + Violation Details | 🔴 REMAINING | compliance scaffold 🟡 | — |
-| Submit + My Inspections | 🔴 REMAINING | submit 🟡 | — |
+| Compliance donut | 🟢 | `/dashboard/admin?days=` | pass/fail/review segments |
+| Inspection trend | 🟢 | `/dashboard/admin` | month-over-month |
+| Recent inspections | 🟢 | `/repository/search?limit=` | row table |
+| AIDecision / Hero | 🔴 | — | mock `data/*.ts` |
+| HighRisk / TopViolations / OfficerWorkload | 🟢 | `/dashboard/admin`, `/dashboard/violations` | live-with-fallback |
+| InspectionsPage / Detail / Review / NewInspection / Search | 🔴 | — | mock data + modals (endpoints exist!) |
+| Companies / Officers pages | 🔴 | — | mock data (users/entities APIs exist!) |
+| Token gating | 🟡 | `/auth` via `VITE_ADMIN_TOKEN` or `localStorage.doca_admin_token` | mock fallback when unset → UI never breaks |
 
-## 3. Frontend build order (agreed to confirm with you)
+`src/api/{client,useLiveData}.ts` provides `useLiveCompliance`, `useLiveTrend`, `useLiveRecent` with mock fallback — the pattern to extend to remaining pages.
+
+## 3. Frontend build order (agreed)
 
 ```
-F1: Stack lock (Next.js 15 + TS? + Tailwind? + shadcn? — Q1 below)
-F2: Scaffold frontend-web + API client + Login + role guard (unblocks all)
-F3: Admin Dashboard (real summary, mocked advanced KPIs)
-F4: Inspections list + Inspection Detail + Review actions
-F5: Violations, Reports stub, History stub, Users stub, Rules read-only
-F6: Mobile decision (full Flutter vs responsive PWA officer flow — Q2 below)
+F1 ✅  Stack + baseline (admin: Vite+React+Tailwind; officer: Expo RN) + shared API client
+F2 ✅  Login real JWT (officer + admin token-gate)
+F3 ✅  Inspections list + analysis result (live)
+F4 ✅  Scanner end-to-end (capture→commodity→create→upload→analyze→evaluate→result)
+F5 ✅  Live KPI donut/trend/recent (admin)
+F6 ⏳  Officer dashboard live (/dashboard/officer + my-checklist); fix index.tsx:84
+F7 ⏳  Admin detail/review/inspections/violations live
+F8 ⏳  Deploy: EXPO_PUBLIC_API_BASE_URL + VITE_API_BASE_URL + VITE_ADMIN_TOKEN in prod
 ```
 
-## 4. Open questions for you (answering unlocks F1–F2)
+## 4. Changelog (append-only)
 
-- [ ] Q1 Stack: keep ARCHITECTURE choice (Next.js 15 App Router + TS + Tailwind) or switch (Vite+React / other)? UI kit: shadcn/ui or plain Tailwind?
-- [ ] Q2 Mobile: build Flutter app now, or ship responsive Next.js officer routes first for SIH demo speed?
-- [ ] Q3 Data: Supabase = Postgres only (keep FastAPI as API), or also Supabase Auth/Storage? Where do `.env` creds go?
-- [ ] Q4 Auth roles: OFFICER / REVIEWER / ADMIN / SUPERADMIN (per ARCHITECTURE §4) — confirm?
-- [ ] Q5 Demo priority: which 3 web pages must shine for judges (suggest: Dashboard, Inspection Detail, Capture/Review)?
-
-## 5. Changelog (append-only)
-
-- 2026-09-07: Tracker created from STATUS_AND_ROADMAP + UIUX Brief + ARCHITECTURE. No frontend code exists yet.
+- 2026-09-07: Tracker created. No frontend code existed; backend gate said mocks.
+- 2026-09-09: Backend fully live (B0–B8). Both app repos absorbed into `DoCA/`. Rewrote tracker to current reality.
+- 2026-09-09 (evening): Admin portal — 3 more dashboard cards wired live-with-fallback in `useLiveData.ts` + cards: TopViolations → `GET /dashboard/violations`; HighRiskCompanies → `/dashboard/admin?days=60#repeat_offenders`; OfficerWorkload → `#workload`. Admin `tsc --noEmit` clean. F5 row now covers all 6 dashboard KPIs. Remaining F7: InspectionsPage (`GET /inspections`) → InspectionDetailView (`GET /inspections/{id}`) → ReviewModal (`POST /inspections/{id}/review`), per `docs/superpowers/specs/2026-09-09-demo-world-seed-and-live-ui-design.md`.

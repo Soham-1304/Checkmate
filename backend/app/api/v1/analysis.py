@@ -17,7 +17,7 @@ from app.schemas.inspection import (
     AnalyzeRequest,
     DeclarationIngestRequest,
 )
-from app.services import ocr_service, storage_service
+from app.services import ocr_service, report_service, storage_service
 
 logger = logging.getLogger(__name__)
 
@@ -255,7 +255,18 @@ async def analyze_auto(
                             "pipeline_version": pipeline_version, "images": raw_images}),
         db, current_user,
     )
+    # Auto-render the compliance PDF so upload → OCR → report is ONE call.
+    # Non-fatal: analysis result is still returned if the render/upload fails.
+    report_url = None
+    try:
+        report = await report_service.render_inspection_report(db, inspection_id, current_user.id)
+        report_url = storage_service.presigned_url(
+            report.file_key, settings.SUPABASE_BUCKET_REPORTS)
+    except Exception:
+        logger.exception("auto report render failed for inspection %s", inspection_id)
+
     return {"success": True, "run_id": run.id, "status": "COMPLETED",
             "images_processed": len(results),
             "avg_confidence": round(sum(r["avg_confidence"] for r in results) / len(results), 4),
-            "ingest": out}
+            "ingest": out,
+            "report_url": report_url}

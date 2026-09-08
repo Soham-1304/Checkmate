@@ -1,172 +1,124 @@
-# DoCA PS-26034 Backend: Current Status, Scaffolding vs. Done, and Remaining Work
+# DoCA PS-26034 — Current Status, Done vs Remaining
 
-> **Audit Date:** September 2026  
-> **Target Scope:** PS-26034 Backend & Database Layer (Ministry of Consumer Affairs / Legal Metrology)  
-> **Audited Against:**
-> - `docs/SIH - 2026/SIH26034_SRS 3d02491680008080aedec1229a2c668e.md`
-> - `docs/SIH - 2026/DATABASE WORKFLOW PLANNING 3d124916800081a2acb7c7a234035e7e.md`
-> - `docs/SIH - 2026/SIH26034_UIUX_Design_Brief 3d02491680008085951ffcdbf2cdde68.md`
-> - `SIH_DATASET.pdf` (Gazette GSR 202(E))
+> **Audit Date:** 2026-09-09 (fresh, code + live API verified; demo-world seed v1 + admin KPI wiring added in evening pass)
+> **Source of truth:** `BACKEND_TRACKER.md` (B0–B8 E2E-verified live detail, append-only changelog), `FRONTEND_TRACKER.md` (both apps), `ARCHITECTURE.md` (as-built).
+> **Legend:** 🟢 DONE (live-verified) / 🟡 PARTIAL (works, has gaps) / 🔴 REMAINING.
+> **Rule:** update this file whenever a milestone changes status. Keep `BACKEND_TRACKER.md` changelog as the granular log.
 
 ---
 
-## 1. Executive Summary: What is "Done" vs "Scaffolded" vs "Remaining"
+## 1. Executive Summary — where the system actually stands
 
-| Category | Status | Definition in this Project |
+| Layer | Status | Headline facts |
 |---|---|---|
-| **DONE** | 🟢 **15%** | Architecture documents, Gazette rule extraction, data entity definitions, directory structure, and syntax-compiled Python code. |
-| **SCAFFOLDED (Code Written, Needs Live Wiring/Expansion)** | 🟡 **35%** | FastAPI routes, SQLAlchemy models, Pydantic schemas, basic seeder script, and docker-compose file. These exist as code but are **not yet executed against a live DB, missing unit tests, and lack full business logic depth**. |
-| **REMAINING (Not Yet Built)** | 🔴 **50%** | Full RBAC management, granular dashboard KPIs, assignment management, commodity/master data CRUD, advanced repository search, PDF report generator, and Alembic migrations. |
+| **Backend API** | 🟢 **DONE** | FastAPI on Supabase Postgres, **46 routes live, all B0→B8 sub-tasks E2E-verified against the live DB** (see `BACKEND_TRACKER.md`). |
+| **Rules / Compliance Engine** | 🟢 **DONE** | `LM-PCR-2011-v1.0` rule set seeded; Rule 3 applicability, Rule 6/7/8/9 checks, **First Schedule MPE + Second Schedule pack-size** (B8) all live. |
+| **Storage** | 🟢 **DONE** | Supabase Storage switch (`STORAGE_BACKEND=supabase`), evidence + report buckets, presigned URLs. |
+| **AI / OCR** | 🟢 **DONE** | **Server-side RapidOCR** in-process (`POST .../analyze-auto`) — upload → OCR → 12 declarations → verdict → PDF in one call. Heavy EasyOCR worker bridge retained for Hindi. |
+| **PDF Reports** | 🟢 **DONE** | WeasyPrint inspection report, auto-rendered on evaluate, stored in bucket. |
+| **Officer mobile app** | 🟡 **~70%** | Login, inspections, analysis result, full scanner flow all live. Dashboard/stores + 4 static screens remain mock. |
+| **Admin web portal** | 🟡 **~65%** | 6 dashboard KPI cards live (compliance, trend, recent, top violations, high risk, workload); InspectionsPage/detail/review + Companies/Officers pages still on mock data. |
+| **Demo data (seed)** | 🟡 **schema+seed DONE / data v1** | `seed_demo_world.py` — 8 brands / 8 entities / 15 inspections (6 PASS, 5 FAIL, 4 REVIEW) with real evidence photos + declarations via the **real engine**; ideal data story pending. |
+| **Deploy** | 🟡 **~80%** | Dockerfile + render.yaml + environment hardening done; container builds & boots (login verified). Render deploy itself not yet run. |
+| **Automated tests** | 🔴 **0%** | No pytest suite yet — verification has been live-E2E only (manual). |
 
 ---
 
-## 2. Detailed Component-by-Component Audit
+## 2. Backend — detailed
 
-### 2.1 Authentication & RBAC (Role-Based Access Control)
-*Reference: SRS Section 4, 6 (FR-01), 13; UI/UX Brief Section 5*
+### 2.1 Infrastructure (B0) — 🟢 DONE
+- Supabase pooler DSN live (`aws-0-ap-south-1.pooler.supabase.com:5432`, PG 17), `ssl` handled.
+- Alembic baseline + B3/B5/B7 migrations applied live.
+- `seed_gazette.py` (roles, 3 users, 12 field defs, 10 requirements) + `seed_demo.py` (entities/brands/commodities/assignments) live. **11 commodities** now in catalog.
+- **`seed_demo_world.py`** (new): idempotent demo-world seeder (deterministic UUIDs, `--reset`), adds 8 real brands (Parle-G, Britannia, Amul, Haldiram's, Tata, Maggi, Aashirvaad, Saffola) × 8 entities × 12 commodities (EAN-13) + 2 extra officers (Priya Sharma, Rahul Verma), 6 assignments, **15 inspections** across 10 states. Declarations fabricated, then verdicts produced by the **real** `run_compliance_evaluation` + `render_inspection_report`; evidence photos uploaded to `Bluetick_Image_Store`. Result: 6 PASS / 5 FAIL / 4 REVIEW in the last 60 days.
+- Env-driven CORS + `STORAGE_BACKEND` switch; `.env` excluded from Docker image (`.dockerignore`).
 
-| Feature / Requirement | Current Status | Notes & Gaps |
+### 2.2 Auth, RBAC, Users (B3) — 🟢 DONE
+- JWT HS256 login (form + JSON), `/auth/me`, **refresh rotation with opaque tokens + reuse→chain-revoked**, `/auth/logout`.
+- Users CRUD (`users.py`) with `can_manage_users` capability, 409 dup, self-deactivate/role-change/Superadmin-edits blocked.
+- **Granular capability checks** (`require_capability`) beyond role names (SUPERADMIN bypass).
+- Logins: `officer@doca.gov.in` / `admin@doca.gov.in` (see `SUPABASE_SETUP.md`).
+
+### 2.3 Officer workflow (B1, B2, B4, B8) — 🟢 DONE
+| Capability | Status |
+|---|---|
+| Assignments CRUD + my-checklist | 🟢 B4 live |
+| Commodity/entity/brand CRUD + barcode search | 🟢 B4 live (11 demo commodities) |
+| Officer dashboard (`/dashboard/officer`) | 🟢 B4 live |
+| Inspections: create/lock-ruleset/detail/list | 🟢 (list response-model hardened B2) |
+| Evidence upload multipart → Supabase presigned | 🟢 B1 live |
+| Declarations: ingest, list, PATCH correction (preserves `machine_value`) | 🟢 B2 live |
+| ML pipeline: `analyze` (async worker contract) + `analyze-auto` (server-side RapidOCR) | 🟢 c6ac763 live |
+| Compliance evaluate + findings + accept/note | 🟢 B2 live (low-conf<0.60 → REVIEW invariant) |
+| MPE (First Schedule) + pack-size (Second Schedule) validators | 🟢 B8 live |
+| Submit → UNDER_REVIEW | 🟢 (code complete; not re-exercised in last demo) |
+
+### 2.4 Admin / analysis (B5, B6, B7) — 🟢 DONE
+- Admin KPI dashboard (`/dashboard/admin?days=`) — volume trend, compliance %, repeat offenders, AI quality (low-conf/override), workload, geo, sector fail-share.
+- PDF report (`/inspections/{id}/report` + auto-render on evaluate) with embedded evidence, stored in `Bluetick_Report_Store`.
+- Repository search + CSV export (`repository.py`), audit trail query (`audit-events`) — officer auto-scoped, `can_view_*` gates.
+
+### 2.5 Remaining backend work — 🔴
+- **No pytest suite** (pytest deps present, no tests written). Notable risk for handover.
+- Second Schedule only maps 19 commodities; unknown categories are "neutral" (documented).
+- OCR is RapidOCR (EN-focused); Hindi path needs the EasyOCR worker bridge (`AI_ML/worker_bridge.py`) — not exercised on server.
+- `POST /inspections` still returns raw list (no pagination envelope / `?q=` for RN) — flagged in BACKEND_TRACKER.
+- Evidence `file_url` expiry/presigned-upload fallback for cellular (documented risk #2).
+- Rule config UI is read-only (no admin edit endpoint).
+
+---
+
+## 3. Frontend — detailed
+
+### 3.1 Officer mobile app — `frontend_app/` (Expo RN)
+| Screen | Status | Notes |
 |---|---|---|
-| JWT Login (`/auth/login`, `/auth/login/json`) | 🟡 **SCAFFOLDED** | Route exists, parses credentials, issues JWT token. Needs live DB verification. |
-| Fetch Profile (`/auth/me`) | 🟡 **SCAFFOLDED** | Basic user profile and role name returned. |
-| Token Refresh (`/auth/refresh`) | 🔴 **REMAINING** | No refresh token issuance or rotation logic yet. |
-| User Management CRUD (`/api/v1/users`) | 🔴 **REMAINING** | Admin cannot yet create officers, list users, deactivate accounts, or change passwords via API. |
-| Granular Permission Matrix | 🟡 **SCAFFOLDED** | `Role.permissions` column exists as JSONB, but role checking in routes only checks role name strings (`"OFFICER"`, `"ADMIN"`), not granular capabilities (e.g. `can_reassign`, `can_modify_rules`). |
-| Multi-Workspace Role Separation | 🔴 **REMAINING** | Need distinct route guards for **Officer Workspace** (mobile field routes) vs **Reviewer Workspace** (adjudication routes) vs **Admin Workspace** (system governance). |
+| Login (`/auth/login/json` + SecureStore tokens, `/auth/me`) | 🟢 | real JWT flow |
+| Inspections list (table, filters, pagination) | 🟢 | live `/inspections` + `/commodities` |
+| Scan → result (`scanner.tsx`) | 🟢 | capture → **commodity picker** → create → upload → **analyze-auto** → **evaluate** → real result screen |
+| Analysis result (`/analysis/{id}`) | 🟢 | live detail, findings, **View Full Report** (presigned open) |
+| Dashboard (`index.tsx`) | 🟡 | shell + `expo-image-picker` wired, but stats/checklist from local stores (mock), not `/dashboard/officer` |
+| Entities, Standards, Notifications, Help, Settings | 🔴 | static mock screens, no API |
+| TypeScript | 🟡 | 1 pre-existing error `index.tsx:84` (`contentContainer` style), not ours |
 
----
-
-### 2.2 Dashboards & KPI Analytics
-*Reference: SRS Section 6 (FR-22), 12.2; UI/UX Brief Section 4 & 5*
-
-| Feature / Requirement | Current Status | Notes & Gaps |
+### 3.2 Admin web portal — `frontend_admin/` (Vite + React + Tailwind)
+| Card / Page | Status | Notes |
 |---|---|---|
-| Basic System Counts (`/dashboard/summary`) | 🟡 **SCAFFOLDED** | Returns total inspections, status breakdown, pass/fail counts. |
-| Top Violation Clauses (`/dashboard/violations`) | 🟡 **SCAFFOLDED** | Groups findings by legal reference and counts occurrences. |
-| **Officer Dashboard KPIs** (Mobile App view) | 🔴 **REMAINING** | **Missing entirely:**<br>• Today's inspections count<br>• My pending checklist / assigned commodities<br>• My completion rate & recent activity feed |
-| **Admin Executive KPIs** (DOCA Web view) | 🔴 **REMAINING** | **Missing entirely:**<br>• Daily / Weekly inspection volume trend line data<br>• Compliance rate percentage (% pass vs % fail)<br>• **Recidivism / Repeat Offender KPI:** Brands/Manufacturers with repeated violations<br>• **AI Exception / Quality Monitoring KPI:** Rate of low-confidence extractions & manual officer overrides<br>• Inspector workload distribution (inspections per officer)<br>• Geographic breakdown (violations grouped by District / State from location metadata) |
+| Compliance donut | 🟢 | `/dashboard/admin` live (pass/fail/review) |
+| Inspection trend | 🟢 | live |
+| Recent inspections | 🟢 | `/repository/search` live |
+| AIDecision, Hero | 🔴 | mock data (`data/*.ts`) |
+| HighRisk, TopViolations, OfficerWorkload | 🟢 | `/dashboard/admin?days=60` (repeat_offenders / violations / workload) |
+| InspectionsPage / Detail / Review / NewInspection / Search | 🔴 | mock data + modals; `useLiveData` not used |
+| Companies / Officers pages | 🔴 | mock data |
+| Token gating | 🟡 | live only if `VITE_ADMIN_TOKEN` set or `localStorage.doca_admin_token`; otherwise mock fallback (never breaks) |
 
 ---
 
-### 2.3 Master Data & Commodity Catalog
-*Reference: DB Planning Section 4, 11; SRS FR-04, FR-21*
+## 4. Deploy / Operations
 
-| Feature / Requirement | Current Status | Notes & Gaps |
-|---|---|---|
-| Master Data Models (`BusinessEntity`, `Brand`, `Commodity`, `FieldDefinition`) | 🟡 **SCAFFOLDED** | SQLAlchemy models created with foreign keys. |
-| Commodity CRUD APIs (`/api/v1/commodities`) | 🔴 **REMAINING** | No endpoints to create, update, or list commodities. |
-| Business Entity / Manufacturer CRUD (`/api/v1/entities`) | 🔴 **REMAINING** | No endpoints to register manufacturers, packers, importers. |
-| Barcode / SKU Instant Search (`/commodities/search?barcode=...`) | 🔴 **REMAINING** | Required for field officers scanning a barcode to auto-populate commodity metadata before photo capture. |
-| Second Schedule Standard Size Mapping | 🔴 **REMAINING** | Data mapping of standard packaging sizes (e.g., Biscuits: 25g, 50g, 75g, 100g...) to commodity categories. |
+- **Dockerfile**: python:3.12-slim + WeasyPrint/OpenCV system libs + **bcrypt pinned `==4.3.0`** (build-smoke asserts auth roundtrip so passlib/bcrypt drift fails the *build*, not the demo) + `.dockerignore` keeps `.env` out of image + `alembic upgrade head` in CMD.
+- **render.yaml**: single Docker web service (plan `standard`), env vars from `SUPABASE_SETUP.md`.
+- **Verified**: image builds, container boots, login works. A second dev container (`doca-api-test`) currently runs alongside local uvicorn during Docker handoff.
+- 🔴 **Not done**: actual Render blueprint deployment; VITE_ADMIN_TOKEN in prod env; HTTPS/CORS origins for deployed FE.
 
 ---
 
-### 2.4 Work Allocation & Assignments
-*Reference: DB Planning Section 2, 5; SRS FR-02; UI/UX Brief Section 4*
-
-| Feature / Requirement | Current Status | Notes & Gaps |
-|---|---|---|
-| Assignment Model | 🟡 **SCAFFOLDED** | Model exists with `assigned_by`, `assigned_to`, `due_date`, `status`. |
-| Assignment CRUD APIs (`/api/v1/assignments`) | 🔴 **REMAINING** | Admin cannot yet assign commodities to officers, reassign tasks, set due dates, or cancel assignments. |
-| Officer Checklist API (`/api/v1/assignments/my-checklist`) | 🔴 **REMAINING** | Mobile app needs an endpoint to fetch the logged-in officer's active assignments and priority tasks. |
-
----
-
-### 2.5 Inspections & Evidence Workflow
-*Reference: SRS FR-02, FR-03, FR-15, FR-16, FR-17; UI/UX Brief Section 3, 4, 5*
-
-| Feature / Requirement | Current Status | Notes & Gaps |
-|---|---|---|
-| Inspection Model & Lifecycle | 🟡 **SCAFFOLDED** | States (`DRAFT`, `IN_PROGRESS`, `UNDER_REVIEW`, `COMPLETED`) modeled. |
-| Create Draft Inspection (`POST /inspections`) | 🟡 **SCAFFOLDED** | Automatically locks to active rule set version (`LM-PCR-2011-v1.0`). |
-| Multi-Image Evidence Upload (`POST /inspections/{id}/evidence`) | 🟡 **SCAFFOLDED** | Supports 2–3 photos (`FRONT_PDP`, `BACK_PANEL`, `SIDE_PANEL`) with disk fallback. |
-| Declarations & Human Correction (`PATCH /declarations/{id}`) | 🟡 **SCAFFOLDED** | Corrects `officer_value` while preserving `machine_value` for evidentiary audit. |
-| Submission (`POST /inspections/{id}/submit`) | 🟡 **SCAFFOLDED** | Moves inspection to `UNDER_REVIEW`. |
-| Adjudication Review (`POST /inspections/{id}/review`) | 🟡 **SCAFFOLDED** | Admin records final decision (`APPROVED_COMPLIANT`, `APPROVED_NON_COMPLIANT`, `RETURNED_FOR_REVIEW`). |
-| Evidence MinIO S3 SDK Integration | 🔴 **REMAINING** | Currently writing to local `/uploads` directory; MinIO client wrapper not yet wired. |
-| Physical Measurement & MPE Calculation (First Schedule) | 🔴 **REMAINING** | Route accepts `physical_quantity`, but does not yet evaluate it against the Maximum Permissible Error table. |
-
----
-
-### 2.6 Deterministic Statutory Compliance Engine
-*Reference: SIH_DATASET.pdf; SRS FR-08, FR-09, FR-10, FR-11, FR-12, FR-14*
-
-| Feature / Requirement | Current Status | Notes & Gaps |
-|---|---|---|
-| Rule Set & Requirement Models | 🟡 **SCAFFOLDED** | Models and seed data exist for 10 Gazette clauses. |
-| Compliance Service (`run_compliance_evaluation`) | 🟡 **SCAFFOLDED** | Evaluates Rule 6(1)(e) (MRP), Rule 6(1)(a) (Address PIN), Rule 6(1)(c) (Net Qty SI units), Rule 7 (Font height), Rule 8 (Clearance), Rule 9 (Contrast & Script). |
-| Dynamic Rule Applicability Engine | 🔴 **REMAINING** | Currently assumes general packaged commodity; need exemption handling (Rule 3: >25kg, industrial packaging exemptions). |
-| First Schedule MPE Tolerance Math | 🔴 **REMAINING** | Formula to check if observed weight falls within permissible error % based on declared net quantity bracket. |
-| Second Schedule Standard Pack Size Check | 🔴 **REMAINING** | Verification if commodity category must match prescribed sizes or declare the mandatory disclaimer. |
-
----
-
-### 2.7 Statutory Reports & Official Repository
-*Reference: SRS FR-18, FR-19, FR-20, FR-21, FR-26; Gazette Seventh Schedule*
-
-| Feature / Requirement | Current Status | Notes & Gaps |
-|---|---|---|
-| Report Model | 🟡 **SCAFFOLDED** | Stores `file_key`, `file_url`, `generated_at`, `generated_by`. |
-| Statutory PDF Generation Engine | 🔴 **REMAINING** | WeasyPrint / Jinja2 template matching **Form A (Weight Sheet)** and **Form B (Volume Sheet)** from the Gazette Seventh Schedule not yet coded. |
-| Report Generation Endpoint (`POST /inspections/{id}/report`) | 🔴 **REMAINING** | Endpoint to compile and store the statutory report. |
-| Report Download / Stream (`GET /inspections/{id}/report`) | 🔴 **REMAINING** | Endpoint for downloading the signed legal inspection report. |
-| Advanced Repository Search (`/api/v1/repository/search`) | 🔴 **REMAINING** | Multi-faceted search filtering by Brand, Manufacturer, Commodity, Barcode, Date Range, Officer, and Violation Type. |
-| Export to CSV / Excel | 🔴 **REMAINING** | Bulk export of inspection logs and violation analytics for departmental reporting. |
-
----
-
-### 2.8 Audit Trail & System Integrity
-*Reference: SRS FR-25; DB Planning Section 25*
-
-| Feature / Requirement | Current Status | Notes & Gaps |
-|---|---|---|
-| Audit Event Model | 🟡 **SCAFFOLDED** | Table captures `actor_id`, `action`, `entity_type`, `entity_id`, `old_value`, `new_value`, `reason`. |
-| Automatic Event Logging | 🟡 **SCAFFOLDED** | Inline logging implemented for inspection creation, submission, review decisions, and declaration corrections. |
-| Audit Trail Query Endpoint (`/api/v1/audit-events`) | 🔴 **REMAINING** | Admin endpoint to inspect the tamper-evident audit history of any commodity or inspection. |
-
----
-
-### 2.9 Database Migrations & Environment
-*Reference: Architecture Document Section 2*
-
-| Feature / Requirement | Current Status | Notes & Gaps |
-|---|---|---|
-| `docker-compose.yml` (Postgres, Redis, MinIO) | 🟡 **SCAFFOLDED** | File written, ready to run. |
-| Alembic Migrations | 🔴 **REMAINING** | Alembic initialized but migration files (`versions/*.py`) not yet generated or applied. |
-| Automated Test Suite (`pytest`) | 🔴 **REMAINING** | Test directory created, but integration tests for auth, upload, and compliance not yet written. |
-
----
-
-## 3. Priority Roadmap: What We Must Build Next
+## 5. Priority roadmap — what to build next
 
 ```
-  STEP 1: DATABASE & LIVE INFRASTRUCTURE
-    ├── Start PostgreSQL 16 & Redis via Docker Compose
-    ├── Generate & apply Alembic initial migration
-    └── Execute seed_gazette.py to verify real database tables
-
-  STEP 2: FULL AUTH & USER MANAGEMENT (Complete RBAC)
-    ├── Users CRUD API (/api/v1/users) — create/list/deactivate officers
-    ├── Refresh token endpoint (/api/v1/auth/refresh)
-    └── Granular permission checker (capabilities matrix)
-
-  STEP 3: WORKFLOW & MASTER DATA
-    ├── Commodity & Business Entity CRUD (/api/v1/commodities, /api/v1/entities)
-    ├── Barcode lookup API (/commodities/search?barcode=...)
-    └── Assignments API (/api/v1/assignments) — Admin allocation & Officer checklist
-
-  STEP 4: ADVANCED DASHBOARD & KPI ANALYTICS
-    ├── Officer Dashboard (/dashboard/officer) — today's tasks, pending checklist
-    ├── Admin Executive Dashboard (/dashboard/admin) — volume trends, compliance %, recidivism
-    └── Repeat Offender Analytics — top violating brands & manufacturers
-
-  STEP 5: STATUTORY PDF REPORTS & REPOSITORY SEARCH
-    ├── Jinja2 template for Gazette Form A / Form B
-    ├── WeasyPrint PDF compiler with evidence image embedding
-    ├── Report generation & download endpoints (/inspections/{id}/report)
-    └── Multi-faceted Repository Search (/api/v1/repository/search)
-
-  STEP 6: MPE & SCHEDULE ENHANCEMENTS
-    ├── First Schedule MPE (Maximum Permissible Error) evaluation
-    └── Second Schedule Standard Pack Size validator
+P1  pytest suite: auth, evidence upload, declarations, evaluate, analyze-auto,
+    report render, repository search  (biggest remaining risk)
+P2  Officer app: bind dashboard to /dashboard/officer + my-checklist; fix index.tsx:84
+P3  Admin portal: wire InspectionsPage (GET /inspections) → InspectionDetailView
+    (GET /inspections/{id}) → ReviewModal (POST /inspections/{id}/review)
+P4  Deploy to Render (blueprint) + set VITE_ADMIN_TOKEN + CORS origins for prod URL
+P5  Hindi OCR: exercise AI_ML worker_bridge against server contract (PUT declarations)
+P6  Nice-to-have: pagination envelope on inspections list; presigned PUT fallback; rules editor
 ```
+
+## 6. Changelog (append-only)
+
+- 2026-09-09 (evening): Demo-world seed v1 (`seed_demo_world.py`, idempotent + `--reset`) — 15 branded inspections (6 PASS/5 FAIL/4 REVIEW) through the real engine; `/dashboard/admin?days=60` now shows believable trends (16 active days, 3 officers, 10 states, 12 sectors). Admin portal wired 3 more dashboard cards live (TopViolations → `/dashboard/violations`; HighRisk + OfficerWorkload → `/dashboard/admin`). Added `docs/superpowers/specs/2026-09-09-demo-world-seed-and-live-ui-design.md`. Admin `tsc --noEmit` clean. WeasyPrint PDF render not exercised (missing libgobject locally; expected OK in container).
+
+- 2026-09-09: Full re-audit after B0–B8 + AI integration + frontend wiring. Backend 46 routes live; scanner flow wired end-to-end (capture→pick commodity→create→upload→analyze-auto→evaluate→result) and verified against live backend; cleaned 2 stray inspection rows (repo now holds the 3 demo inspections). Docker: bcrypt pin + auth smoke + `.dockerignore` (env un-baked). Status rewritten from stale "everything is 🔴" to current reality.
