@@ -35,6 +35,7 @@
 
 ## 4. Known gaps (owned later)
 
-- **First Schedule MPE** math → B8. - **Second Schedule** standard pack sizes → B8 (`standard_pack_warning` key reserved).
+- **First Schedule MPE** math → ✅ B8 DONE (sub-check under Req 3/Rule6(1)(c): TABLE-I bands + rounding per First Schedule §2, TABLE-II by-number 2%; deficiency-only; no physical sample = explicitly not verifiable). Tables verbatim from `RULES.md` (First Schedule:468-482).
+- **Second Schedule** standard pack sizes → ✅ B8 DONE (sub-check under Req 3: 19 entries verbatim from `RULES.md:496-525`; non-standard + no `standard_pack_warning` disclaimer → FAIL citing Rule 5 proviso; unscheduled categories → neutral note).
 - **Rule 10** import/brand-owner specifics (folded into 6(1)(a) for now). - **Rule 7 Table II** letter heights (folded into Table I check).
 - **Seventh Schedule** Forms A/B → B6 reports.
