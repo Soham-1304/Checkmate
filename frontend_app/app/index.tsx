@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Typography } from '../src/theme';
 
-const LOGO = require('../assets/logo.png');
+const LOGO = require('../assets/logo-mark.png');
 
 export default function SplashScreen() {
   const router = useRouter();
@@ -58,8 +58,10 @@ const styles = StyleSheet.create({
   orb: { position: 'absolute', borderRadius: 999 },
   logo: { alignItems: 'center' },
   logoImage: {
-    width: 160,
-    height: 160,
+    width: 148,
+    height: 148,
+    borderRadius: 74,
+    backgroundColor: '#FFFFFF',
   },
   bottom: { position: 'absolute', bottom: 40, alignItems: 'center' },
 });

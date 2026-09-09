@@ -41,7 +41,7 @@ export default function LoginScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.header}>
-        <Image source={require('../assets/logo.png')} style={styles.logo} resizeMode="contain" />
+        <Image source={require('../assets/logo-mark.png')} style={styles.logo} resizeMode="contain" />
         <Text style={[Typography.headlineMedium, styles.title]}>Welcome Back</Text>
         <Text style={[Typography.bodyMedium, styles.subtitle]}>Sign in to your compliance dashboard</Text>
       </View>
@@ -140,7 +140,9 @@ const styles = StyleSheet.create({
   content: { padding: Spacing.screenHorizontal, paddingBottom: Spacing.massive },
   header: { marginTop: Spacing.xxxxl, marginBottom: Spacing.massive },
   logo: {
-    width: 110, height: 110,
+    width: 96, height: 96,
+    borderRadius: 48,
+    backgroundColor: '#FFFFFF',
     marginBottom: Spacing.xxl,
   },
   title: { marginBottom: Spacing.sm },

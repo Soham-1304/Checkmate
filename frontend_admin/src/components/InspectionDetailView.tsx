@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ArrowLeft,
   CheckCircle2,
@@ -10,11 +10,13 @@ import {
   Calendar,
   MapPin,
   User,
-  Sparkles,
   FileText,
+  Loader2,
+  Camera,
+  Scale,
 } from 'lucide-react';
 import { InspectionDetailRow } from '../data/inspectionsData';
-import { api } from '../api/client';
+import { api, isLiveConfigured } from '../api/client';
 
 interface InspectionDetailViewProps {
   inspection: InspectionDetailRow | null;
@@ -24,6 +26,54 @@ interface InspectionDetailViewProps {
   onReject: (id: string) => void;
 }
 
+interface EvidenceItem {
+  id: string;
+  file_url?: string;
+  url?: string;
+  view_type: string;
+  mime_type?: string;
+  created_at: string;
+}
+interface DeclarationItem {
+  id: string;
+  canonical_key: string;
+  display_name?: string;
+  final_value?: string | number | null;
+  machine_value?: string | number | null;
+  confidence?: number | null;
+  confidence_label?: string;
+  script_language?: string;
+}
+interface FindingItem {
+  id: string;
+  severity: string;
+  title: string;
+  explanation?: string;
+  legal_reference?: string;
+}
+interface InspectionFull {
+  id: string;
+  status: string;
+  compliance_result?: string | null;
+  final_decision?: string | null;
+  context_notes?: string | null;
+  created_at: string;
+  submitted_at?: string | null;
+}
+
+const SEV_STYLE: Record<string, string> = {
+  CRITICAL: 'bg-rose-100 text-rose-700 border-rose-200',
+  MAJOR: 'bg-[#E37820]/15 text-[#E37820] border-[#E37820]/30',
+  MINOR: 'bg-amber-100 text-[#9a6206] border-amber-200',
+  INFO: 'bg-emerald-100 text-[#017374] border-emerald-200',
+};
+const COMP_STYLE: Record<string, string> = {
+  Compliant: 'bg-emerald-100 text-[#017374] border-emerald-200',
+  Minor: 'bg-amber-100 text-[#9a6206] border-amber-200',
+  Major: 'bg-[#E37820]/15 text-[#E37820] border-[#E37820]/30',
+  Critical: 'bg-rose-100 text-rose-700 border-rose-200',
+};
+
 export const InspectionDetailView: React.FC<InspectionDetailViewProps> = ({
   inspection,
   onBack,
@@ -31,525 +81,279 @@ export const InspectionDetailView: React.FC<InspectionDetailViewProps> = ({
   onRequestReinspection,
   onReject,
 }) => {
-  const [selectedImageIndex, setSelectedImageIndex] = useState(2);
-  const [activePin, setActivePin] = useState<number | null>(null);
-  const [reportLoading, setReportLoading] = useState(false);
-  const [reportError, setReportError] = useState<string | null>(null);
+  const [full, setFull] = useState<InspectionFull | null>(null);
+  const [evidence, setEvidence] = useState<EvidenceItem[]>([]);
+  const [declarations, setDeclarations] = useState<DeclarationItem[]>([]);
+  const [findings, setFindings] = useState<FindingItem[]>([]);
+  const [reportUrl, setReportUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const inspId = inspection?.id ?? null;
+
+  useEffect(() => {
+    if (!inspId || !isLiveConfigured()) return;
+    let cancelled = false;
+    setLoading(true);
+    setLoadError(null);
+    Promise.allSettled([
+      api<InspectionFull>(`/inspections/${inspId}`),
+      api<EvidenceItem[]>(`/inspections/${inspId}/evidence`),
+      api<DeclarationItem[] | { declarations?: DeclarationItem[] }>(`/inspections/${inspId}/declarations`),
+      api<FindingItem[]>(`/inspections/${inspId}/findings`),
+    ]).then((res) => {
+      if (cancelled) return;
+      if (res[0].status === 'fulfilled') setFull(res[0].value);
+      if (res[1].status === 'fulfilled') setEvidence(res[1].value ?? []);
+      if (res[2].status === 'fulfilled') {
+        const v = res[2].value;
+        setDeclarations(Array.isArray(v) ? v : v?.declarations ?? []);
+      }
+      if (res[3].status === 'fulfilled') setFindings(res[3].value ?? []);
+      if (res[0].status === 'rejected') setLoadError('Live record unavailable — showing summary.');
+      setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [inspId]);
 
   const openReport = async () => {
-    if (!inspection) return;
-    setReportLoading(true);
-    setReportError(null);
+    if (!inspId) return;
     try {
-      const report = await api<{ file_url?: string; url?: string }>(
-        `/inspections/${inspection.id}/report`,
-      );
-      const url = report?.file_url ?? report?.url;
+      const r = await api<{ file_url?: string; url?: string }>(`/inspections/${inspId}/report`);
+      const url = r?.file_url ?? r?.url;
       if (url) {
+        setReportUrl(url);
         window.open(url, '_blank', 'noopener');
-      } else {
-        setReportError('Report URL unavailable');
       }
     } catch {
-      setReportError('Could not load report');
-    } finally {
-      setReportLoading(false);
+      setLoadError('Could not open the report.');
     }
   };
 
-  // Default to LM-2024-0821 / Aaradhya Besan data if none passed or customized
-  const inspectionCode = inspection ? inspection.id : 'LM-2024-0821';
-  const productName = inspection ? inspection.product.name : 'Besan 1kg';
-  const companyName = inspection ? inspection.company.name : 'Aaradhya Foods Pvt. Ltd.';
+  if (!inspection) {
+    return (
+      <div className="bg-white rounded-3xl p-12 border border-slate-200/80 text-center">
+        <p className="text-sm text-slate-500">Select an inspection from the list to view its record.</p>
+        <button onClick={onBack} className="mt-4 px-4 py-2 rounded-xl bg-[#017374] text-white text-xs font-bold">Back to inspections</button>
+      </div>
+    );
+  }
 
-  const isAaradhya = !inspection || inspection.id === 'INS-2847' || inspection.id === 'LM-2024-0821';
+  const detected = declarations.map((d) => ({
+    label: d.display_name ?? d.canonical_key,
+    value: String(d.final_value ?? d.machine_value ?? '—'),
+    conf: d.confidence != null ? Math.round(d.confidence * 100) : null,
+    heard: (d.confidence_label ?? '').toUpperCase() !== 'UNDETECTED',
+  }));
+  const heardCount = detected.filter((d) => d.value !== '—').length;
+  const verdict = full?.compliance_result ?? ({ Compliant: 'PASS', Minor: 'REVIEW', Major: 'FAIL', Critical: 'FAIL' } as Record<string, string>)[inspection.compliance] ?? null;
+  const decided = !!full?.final_decision;
 
   return (
-    <div className="space-y-6 animate-fadeIn">
-      {/* Top Bar with Back Button, Title, and Status Badges */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+    <div className="space-y-5 animate-fadeIn">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           <button
             onClick={onBack}
-            className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-[#017374] hover:border-[#017374] transition-all shadow-2xs group"
+            className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-[#017374] hover:border-[#017374] transition-all shadow-2xs group shrink-0"
             title="Back to inspections"
           >
             <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
           </button>
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-              Inspection {inspectionCode.startsWith('INS') ? `LM-2024-${inspectionCode.slice(4)}` : inspectionCode}
-            </h1>
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-white border border-slate-200 text-slate-600 shadow-2xs">
-              AI Review
-            </span>
-            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-[#E37820]/15 text-[#E37820] border border-[#E37820]/30 shadow-2xs">
-              High Priority
-            </span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl font-black text-slate-900 tracking-tight truncate">{inspection.product.name}</h1>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-500 font-mono">
+                {inspection.id.slice(0, 8)}
+              </span>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${COMP_STYLE[inspection.compliance] ?? COMP_STYLE.Minor}`}>
+                {verdict ?? inspection.compliance}
+              </span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-slate-600">
+                {full?.status ?? inspection.status}
+              </span>
+              {decided && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#017374]/10 border border-[#017374]/30 text-[#017374]">
+                  {full?.final_decision?.replace(/_/g, ' ')}
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              {inspection.company.name} · {inspection.officer.name} · {inspection.dateTime}
+            </p>
           </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={openReport}
-            disabled={reportLoading || !inspection}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#017374] text-white text-xs font-bold shadow-sm hover:bg-[#015c5d] disabled:opacity-50 transition-all"
-            title="Open the compliance PDF report (view + export)"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#017374] hover:bg-[#015758] text-white text-xs font-bold shadow-xs transition-all"
+            title="View / export the official PDF report"
           >
             <FileText className="w-4 h-4" />
-            {reportLoading ? 'Preparing…' : 'View / Export Report'}
+            View / Export Report
           </button>
-          {reportError && (
-            <span className="text-[11px] text-rose-600 font-semibold">{reportError}</span>
-          )}
         </div>
       </div>
 
-      {/* Main Grid: Info + Visualizer + AI Findings */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Card: Inspection Info */}
-        <div className="lg:col-span-3 bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4">
-          <h2 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-3 flex items-center gap-2">
-            <Building2 className="w-4 h-4 text-[#017374]" />
-            Inspection Info
-          </h2>
-
-          <div className="space-y-3 text-xs">
-            <div>
-              <div className="text-slate-400 text-[11px]">Company</div>
-              <div className="font-bold text-slate-800">{companyName}</div>
-            </div>
-
-            <div>
-              <div className="text-slate-400 text-[11px]">Product</div>
-              <div className="font-bold text-slate-800">{productName}</div>
-            </div>
-
-            <div>
-              <div className="text-slate-400 text-[11px]">Category</div>
-              <div className="font-semibold text-slate-700">Flour & Pulses</div>
-            </div>
-
-            <div>
-              <div className="text-slate-400 text-[11px]">Pack Size</div>
-              <div className="font-semibold text-slate-700">1 kg</div>
-            </div>
-
-            <div>
-              <div className="text-slate-400 text-[11px]">MRP</div>
-              <div className="font-bold text-slate-900">₹ 60.00</div>
-            </div>
-
-            <div>
-              <div className="text-slate-400 text-[11px]">Batch No.</div>
-              <div className="font-mono text-slate-700">BF24052001</div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <div className="text-slate-400 text-[11px]">Mfg. Date</div>
-                <div className="font-semibold text-slate-700">10 May 2024</div>
-              </div>
-              <div>
-                <div className="text-slate-400 text-[11px]">Exp. Date</div>
-                <div className="font-semibold text-slate-700">10 Nov 2024</div>
-              </div>
-            </div>
-
-            <div>
-              <div className="text-slate-400 text-[11px]">FSSAI Lic. No.</div>
-              <div className="font-mono text-[11px] text-slate-700">10012022000459</div>
-            </div>
-
-            <div>
-              <div className="text-slate-400 text-[11px]">Location</div>
-              <div className="font-semibold text-slate-700 flex items-center gap-1 mt-0.5">
-                <MapPin className="w-3 h-3 text-[#017374]" />
-                Jaipur, Rajasthan
-              </div>
-            </div>
-
-            <div>
-              <div className="text-slate-400 text-[11px]">Inspector</div>
-              <div className="font-semibold text-slate-700 flex items-center gap-1 mt-0.5">
-                <User className="w-3 h-3 text-[#017374]" />
-                R. Sharma
-              </div>
-            </div>
-          </div>
+      {loadError && (
+        <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200 text-[11px] font-semibold text-amber-800">
+          <AlertTriangle className="w-4 h-4 shrink-0" /> {loadError}
         </div>
+      )}
 
-        {/* Center Card: Packaging Visualizer with Bounding Boxes & Pins */}
-        <div className="lg:col-span-5 bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs flex flex-col justify-between items-center relative">
-          {/* Packaging Box Visualizer */}
-          <div className="relative w-full max-w-[320px] aspect-[4/5] bg-[#fffaf0] rounded-2xl border border-amber-200/60 flex items-center justify-center p-4 overflow-hidden shadow-inner group">
-            {/* Realistic Besan Packaging Render */}
-            <div className="w-full h-full relative flex flex-col items-center justify-between p-3 rounded-xl bg-gradient-to-b from-[#fef3c7] via-[#fde68a] to-[#fcd34d] border border-amber-300 shadow-md select-none">
-              {/* Top seal crimp */}
-              <div className="w-full h-3 bg-amber-400/80 rounded-t flex items-center justify-center gap-1 opacity-70">
-                <div className="w-full h-0.5 border-b border-dashed border-amber-600" />
-              </div>
-
-              {/* Veg Logo Pin at top right */}
-              <div className="absolute top-5 right-4">
-                <div className="w-4 h-4 border border-emerald-700 p-0.5 flex items-center justify-center bg-white rounded-xs">
-                  <div className="w-2 h-2 rounded-full bg-emerald-700" />
-                </div>
-              </div>
-
-              {/* Brand Oval Badge */}
-              <div className="mt-2 bg-[#b91c1c] text-white px-5 py-1.5 rounded-full shadow-sm border border-red-800 flex items-center justify-center">
-                <span className="font-serif font-black text-sm tracking-wide">Aaradhya</span>
-              </div>
-
-              {/* Product Big Title */}
-              <div className="text-center my-auto">
-                <h3 className="text-2xl font-black text-amber-950 tracking-wider font-sans">
-                  BESAN
-                </h3>
-                <div className="text-[11px] font-bold text-amber-900 tracking-tight">
-                  100% Chana Dal
-                </div>
-              </div>
-
-              {/* Besan / Gram Flour bowl illustration */}
-              <div className="w-24 h-12 relative bg-amber-200/80 rounded-full border border-amber-400 flex items-center justify-center overflow-hidden my-1">
-                <div className="w-20 h-8 bg-amber-300 rounded-full blur-[1px]" />
-                <span className="text-[9px] font-bold text-amber-900 relative">Freshly Ground</span>
-              </div>
-
-              {/* Net Weight Declaration */}
-              <div className="w-full text-center pb-2">
-                <span className="text-xs font-black text-amber-950">Net Weight: 1 kg</span>
-              </div>
-
-              {/* Bottom seal crimp */}
-              <div className="w-full h-3 bg-amber-400/80 rounded-b flex items-center justify-center opacity-70">
-                <div className="w-full h-0.5 border-t border-dashed border-amber-600" />
-              </div>
-
-              {/* AI INTERACTIVE BOUNDING BOX PINS */}
-              {/* Pin 1: MRP Declaration (Top Left) */}
-              <div
-                onClick={() => setActivePin(1)}
-                className={`absolute top-16 left-3 cursor-pointer transition-all transform hover:scale-110 ${
-                  activePin === 1 ? 'scale-125 z-20' : 'z-10'
-                }`}
-                title="Pin 1: MRP Declaration (Font size below minimum)"
-              >
-                <div className="w-6 h-6 rounded-full bg-[#E37820] text-white font-black text-xs flex items-center justify-center shadow-md ring-2 ring-white animate-pulse">
-                  1
-                </div>
-                {/* Visual Bounding Box */}
-                <div className="absolute top-6 left-0 w-24 h-10 border-2 border-dashed border-[#E37820] bg-[#E37820]/10 rounded-md pointer-events-none" />
-              </div>
-
-              {/* Pin 2: Net Quantity (Bottom Left) */}
-              <div
-                onClick={() => setActivePin(2)}
-                className={`absolute bottom-6 left-3 cursor-pointer transition-all transform hover:scale-110 ${
-                  activePin === 2 ? 'scale-125 z-20' : 'z-10'
-                }`}
-                title="Pin 2: Net Quantity (Correct)"
-              >
-                <div className="w-6 h-6 rounded-md bg-[#017374] text-white font-black text-xs flex items-center justify-center shadow-md ring-2 ring-white">
-                  2
-                </div>
-                <div className="absolute bottom-0 left-6 w-28 h-8 border-2 border-dashed border-[#017374] bg-[#017374]/10 rounded-md pointer-events-none" />
-              </div>
-
-              {/* Pin 3: Ingredients Declaration (Center Right) */}
-              <div
-                onClick={() => setActivePin(3)}
-                className={`absolute top-1/2 -translate-y-1/2 right-3 cursor-pointer transition-all transform hover:scale-110 ${
-                  activePin === 3 ? 'scale-125 z-20' : 'z-10'
-                }`}
-                title="Pin 3: Ingredients Declaration (Missing allergen info)"
-              >
-                <div className="w-6 h-6 rounded-full bg-[#FEB519] text-white font-black text-xs flex items-center justify-center shadow-md ring-2 ring-white">
-                  3
-                </div>
-              </div>
-
-              {/* Pin 4: FSSAI License Format (Top Right) */}
-              <div
-                onClick={() => setActivePin(4)}
-                className={`absolute top-12 right-3 cursor-pointer transition-all transform hover:scale-110 ${
-                  activePin === 4 ? 'scale-125 z-20' : 'z-10'
-                }`}
-                title="Pin 4: FSSAI License Format (License no. not on same line)"
-              >
-                <div className="w-6 h-6 rounded-full bg-[#E37820] text-white font-black text-xs flex items-center justify-center shadow-md ring-2 ring-white">
-                  4
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Thumbnail Strip */}
-          <div className="flex items-center gap-2 pt-4 overflow-x-auto max-w-full">
-            {[0, 1, 2, 3, 4].map((idx) => (
-              <div
-                key={idx}
-                onClick={() => setSelectedImageIndex(idx)}
-                className={`w-12 h-14 rounded-xl border-2 flex items-center justify-center p-1 cursor-pointer transition-all ${
-                  selectedImageIndex === idx
-                    ? 'border-[#E37820] bg-amber-50 shadow-xs'
-                    : 'border-slate-200 bg-white hover:border-slate-300'
-                }`}
-              >
-                <div className="w-full h-full rounded bg-amber-100/70 flex items-center justify-center text-[9px] font-bold text-amber-900 text-center leading-tight">
-                  {idx === 0 ? 'Front' : idx === 1 ? 'Back' : idx === 2 ? 'Label' : idx === 3 ? 'Batch' : 'MRP'}
-                </div>
-              </div>
-            ))}
-            <div className="w-10 h-14 rounded-xl bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500 shrink-0">
-              +2
-            </div>
-          </div>
-        </div>
-
-        {/* Right Cards: AI Findings + AI Confidence */}
-        <div className="lg:col-span-4 space-y-6 flex flex-col justify-between">
-          {/* AI Findings (4) Card */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4">
-            <h2 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-3 flex items-center justify-between">
-              <span className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-[#017374]" />
-                AI Findings (4)
-              </span>
+      {/* Main grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* Left: record info + detections */}
+        <div className="lg:col-span-4 space-y-5">
+          <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs">
+            <h2 className="text-xs font-bold text-slate-900 border-b border-slate-100 pb-3 flex items-center gap-2 mb-3">
+              <Building2 className="w-4 h-4 text-[#017374]" /> Inspection record
             </h2>
-
-            <div className="space-y-3.5">
-              {/* Item 1 */}
-              <div
-                onClick={() => setActivePin(1)}
-                className={`flex items-start justify-between gap-3 p-2.5 rounded-2xl transition-colors cursor-pointer ${
-                  activePin === 1 ? 'bg-amber-50/80 border border-amber-200' : 'hover:bg-slate-50'
-                }`}
-              >
-                <div className="flex items-start gap-2.5">
-                  <div className="w-5 h-5 rounded-full bg-[#E37820] text-white text-[11px] font-black flex items-center justify-center shrink-0 mt-0.5">
-                    1
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-slate-900">MRP Declaration</div>
-                    <div className="text-[11px] text-slate-500">Font size below minimum</div>
-                  </div>
-                </div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#E37820]/15 text-[#E37820] shrink-0">
-                  High
-                </span>
-              </div>
-
-              {/* Item 2 */}
-              <div
-                onClick={() => setActivePin(2)}
-                className={`flex items-start justify-between gap-3 p-2.5 rounded-2xl transition-colors cursor-pointer ${
-                  activePin === 2 ? 'bg-emerald-50/80 border border-emerald-200' : 'hover:bg-slate-50'
-                }`}
-              >
-                <div className="flex items-start gap-2.5">
-                  <div className="w-5 h-5 rounded-md bg-[#017374] text-white text-[11px] font-black flex items-center justify-center shrink-0 mt-0.5">
-                    2
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-slate-900">Net Quantity</div>
-                    <div className="text-[11px] text-slate-500">Correct</div>
-                  </div>
-                </div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-[#017374] shrink-0">
-                  Low
-                </span>
-              </div>
-
-              {/* Item 3 */}
-              <div
-                onClick={() => setActivePin(3)}
-                className={`flex items-start justify-between gap-3 p-2.5 rounded-2xl transition-colors cursor-pointer ${
-                  activePin === 3 ? 'bg-amber-50/80 border border-amber-200' : 'hover:bg-slate-50'
-                }`}
-              >
-                <div className="flex items-start gap-2.5">
-                  <div className="w-5 h-5 rounded-full bg-[#FEB519] text-white text-[11px] font-black flex items-center justify-center shrink-0 mt-0.5">
-                    3
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-slate-900">Ingredients Declaration</div>
-                    <div className="text-[11px] text-slate-500">Missing allergen info</div>
-                  </div>
-                </div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#FEB519]/25 text-[#9a6206] shrink-0">
-                  Medium
-                </span>
-              </div>
-
-              {/* Item 4 */}
-              <div
-                onClick={() => setActivePin(4)}
-                className={`flex items-start justify-between gap-3 p-2.5 rounded-2xl transition-colors cursor-pointer ${
-                  activePin === 4 ? 'bg-amber-50/80 border border-amber-200' : 'hover:bg-slate-50'
-                }`}
-              >
-                <div className="flex items-start gap-2.5">
-                  <div className="w-5 h-5 rounded-full bg-[#E37820] text-white text-[11px] font-black flex items-center justify-center shrink-0 mt-0.5">
-                    4
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-slate-900">FSSAI License Format</div>
-                    <div className="text-[11px] text-slate-500">License no. not on same line</div>
-                  </div>
-                </div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#E37820]/15 text-[#E37820] shrink-0">
-                  High
-                </span>
-              </div>
+            <div className="space-y-2.5 text-xs">
+              <InfoRow label="Company" value={inspection.company.name} bold />
+              <InfoRow label="Product" value={inspection.product.name} bold />
+              <InfoRow label="Officer" value={inspection.officer.name} />
+              <InfoRow label="Captured" value={inspection.dateTime} />
+              {full?.context_notes && <InfoRow label="Notes" value={full.context_notes} />}
+              {full?.submitted_at && <InfoRow label="Submitted" value={new Date(full.submitted_at).toLocaleString()} />}
             </div>
           </div>
 
-          {/* AI Confidence & Verdict Card */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-3">
-            <div className="text-xs font-medium text-slate-400">AI Confidence</div>
-            <div className="flex items-center justify-between">
-              <span className="text-3xl font-black text-slate-900">94%</span>
-              <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-100 text-[#017374]">
-                High Confidence
-              </span>
-            </div>
-
-            <div className="pt-2 border-t border-slate-100">
-              <div className="text-[11px] text-slate-400 mb-1">AI Decision</div>
-              <span className="inline-block text-xs font-bold px-3 py-1 rounded-full bg-[#E37820]/15 text-[#E37820] border border-[#E37820]/30">
-                Non-Compliant
-              </span>
+          <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs">
+            <h2 className="text-xs font-bold text-slate-900 border-b border-slate-100 pb-3 flex items-center gap-2 mb-1">
+              <Scale className="w-4 h-4 text-[#017374]" />
+              Label declarations
+              <span className="ml-auto text-[10px] font-semibold text-slate-400">{heardCount}/{detected.length} detected</span>
+            </h2>
+            {loading && (
+              <div className="flex items-center gap-2 py-4 text-xs text-slate-400">
+                <Loader2 className="w-4 h-4 animate-spin text-[#017374]" /> Loading OCR results…
+              </div>
+            )}
+            {!loading && detected.length === 0 && (
+              <p className="py-4 text-[11px] text-slate-400">No OCR declarations on record for this inspection.</p>
+            )}
+            <div className="divide-y divide-slate-100">
+              {detected.map((d, i) => (
+                <div key={i} className="py-2 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-[11px] font-semibold text-slate-700 truncate">{d.label}</div>
+                    <div className={`text-xs font-bold truncate ${d.value === '—' ? 'text-slate-300' : 'text-slate-900'}`}>{d.value}</div>
+                  </div>
+                  {d.conf != null && d.value !== '—' && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-[#E5F0EC] text-[#017374] shrink-0">{d.conf}%</span>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Bottom Row: Decision Comparison Table + Action CTA Buttons */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left: Decision Comparison Table */}
-        <div className="lg:col-span-8 bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4">
-          <h3 className="text-sm font-bold text-slate-900">Decision Comparison</h3>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="text-[11px] font-bold text-slate-400 border-b border-slate-100 pb-2">
-                  <th className="pb-2 font-bold">Check Name</th>
-                  <th className="pb-2 font-bold">AI Decision</th>
-                  <th className="pb-2 font-bold">Officer Decision</th>
-                  <th className="pb-2 font-bold">Comments</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50 font-medium">
-                <tr className="hover:bg-slate-50/60">
-                  <td className="py-3 font-semibold text-slate-800">MRP Declaration</td>
-                  <td className="py-3">
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#E37820]/15 text-[#E37820]">
-                      Violation
-                    </span>
-                  </td>
-                  <td className="py-3">
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#FEB519]/20 text-[#9a6206]">
-                      Pending
-                    </span>
-                  </td>
-                  <td className="py-3 text-slate-500">Font size below minimum required</td>
-                </tr>
-
-                <tr className="hover:bg-slate-50/60">
-                  <td className="py-3 font-semibold text-slate-800">Net Quantity</td>
-                  <td className="py-3">
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-[#017374]">
-                      Compliant
-                    </span>
-                  </td>
-                  <td className="py-3">
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#FEB519]/20 text-[#9a6206]">
-                      Pending
-                    </span>
-                  </td>
-                  <td className="py-3 text-slate-400">-</td>
-                </tr>
-
-                <tr className="hover:bg-slate-50/60">
-                  <td className="py-3 font-semibold text-slate-800">Ingredients Declaration</td>
-                  <td className="py-3">
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#E37820]/15 text-[#E37820]">
-                      Violation
-                    </span>
-                  </td>
-                  <td className="py-3">
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#FEB519]/20 text-[#9a6206]">
-                      Pending
-                    </span>
-                  </td>
-                  <td className="py-3 text-slate-500">Allergen 'Oats' missing</td>
-                </tr>
-
-                <tr className="hover:bg-slate-50/60">
-                  <td className="py-3 font-semibold text-slate-800">FSSAI License Format</td>
-                  <td className="py-3">
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#E37820]/15 text-[#E37820]">
-                      Violation
-                    </span>
-                  </td>
-                  <td className="py-3">
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#FEB519]/20 text-[#9a6206]">
-                      Pending
-                    </span>
-                  </td>
-                  <td className="py-3 text-slate-500">License number not on same line</td>
-                </tr>
-              </tbody>
-            </table>
+        {/* Middle: evidence photos */}
+        <div className="lg:col-span-4 space-y-5">
+          <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs">
+            <h2 className="text-xs font-bold text-slate-900 border-b border-slate-100 pb-3 flex items-center gap-2 mb-3">
+              <Camera className="w-4 h-4 text-[#017374]" />
+              Package evidence
+              <span className="ml-auto text-[10px] font-semibold text-slate-400">{evidence.length} photo(s)</span>
+            </h2>
+            {evidence.length === 0 && !loading && (
+              <p className="py-4 text-[11px] text-slate-400">No evidence photos stored for this inspection.</p>
+            )}
+            <div className="space-y-3">
+              {evidence.map((ev) => {
+                const url = ev.file_url ?? ev.url;
+                return (
+                  <a key={ev.id} href={url} target="_blank" rel="noopener" className="block group">
+                    <div className="relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-50">
+                      {url ? (
+                        <img src={url} alt={ev.view_type} className="w-full object-cover max-h-64 group-hover:scale-[1.01] transition-transform" loading="lazy" />
+                      ) : (
+                        <div className="h-32 flex items-center justify-center text-slate-300 text-[11px]">preview unavailable</div>
+                      )}
+                      <span className="absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-900/70 text-white">
+                        {ev.view_type?.replace(/_/g, ' ') ?? 'PHOTO'}
+                      </span>
+                    </div>
+                  </a>
+                );
+              })}
+            </div>
           </div>
         </div>
 
-        {/* Right: 3 Action Decision Buttons */}
-        <div className="lg:col-span-4 flex flex-col justify-between gap-3">
-          {/* 1. Approve */}
-          <button
-            onClick={() => onApprove(inspectionCode)}
-            className="flex-1 flex items-center gap-3 p-4 rounded-2xl bg-[#017374] hover:bg-[#015758] active:scale-[0.99] text-white transition-all shadow-sm text-left group"
-          >
-            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-              <CheckCircle2 className="w-5 h-5 text-white" />
+        {/* Right: findings + decision */}
+        <div className="lg:col-span-4 space-y-5">
+          <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs">
+            <h2 className="text-xs font-bold text-slate-900 border-b border-slate-100 pb-3 flex items-center gap-2 mb-3">
+              <ShieldCheck className="w-4 h-4 text-[#017374]" />
+              AI findings
+              <span className="ml-auto text-[10px] font-semibold text-slate-400">{findings.length}</span>
+            </h2>
+            {findings.length === 0 && !loading && (
+              <p className="py-4 text-[11px] text-slate-400">No rule findings — all label checks passed.</p>
+            )}
+            <div className="space-y-2.5">
+              {findings.map((f) => (
+                <div key={f.id} className={`p-3 rounded-xl border text-[11px] ${SEV_STYLE[f.severity] ?? SEV_STYLE.INFO}`}>
+                  <div className="font-bold">{f.title}</div>
+                  {f.explanation && <div className="mt-1 opacity-90 leading-relaxed">{f.explanation}</div>}
+                  {f.legal_reference && (
+                    <div className="mt-1.5 text-[10px] font-bold opacity-80">⚖ {f.legal_reference}</div>
+                  )}
+                </div>
+              ))}
             </div>
-            <div>
-              <div className="text-sm font-bold leading-tight">Approve</div>
-              <div className="text-[11px] text-emerald-100 font-medium">Agree with AI findings</div>
-            </div>
-          </button>
+          </div>
 
-          {/* 2. Request Re-inspection */}
-          <button
-            onClick={() => onRequestReinspection(inspectionCode)}
-            className="flex-1 flex items-center gap-3 p-4 rounded-2xl bg-[#E37820] hover:bg-[#c96414] active:scale-[0.99] text-white transition-all shadow-sm text-left group"
-          >
-            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-              <RotateCcw className="w-5 h-5 text-white" />
+          <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs">
+            <h2 className="text-xs font-bold text-slate-900 border-b border-slate-100 pb-3 mb-3">Official decision</h2>
+            {decided ? (
+              <div className="flex items-center gap-2 p-3 rounded-xl bg-[#017374]/10 border border-[#017374]/30 text-xs font-bold text-[#017374]">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                {full?.final_decision?.replace(/_/g, ' ')}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-2">
+                <button
+                  onClick={() => onApprove(inspection.id)}
+                  className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#017374] hover:bg-[#015758] text-white text-xs font-bold transition-all"
+                >
+                  <CheckCircle2 className="w-4 h-4" /> Approve — Compliant
+                </button>
+                <button
+                  onClick={() => onReject(inspection.id)}
+                  className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#E37820] hover:bg-[#c96414] text-white text-xs font-bold transition-all"
+                >
+                  <XCircle className="w-4 h-4" /> Reject — Non-Compliant
+                </button>
+                <button
+                  onClick={() => onRequestReinspection(inspection.id)}
+                  className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-300 text-slate-600 text-xs font-bold hover:bg-slate-50 transition-all"
+                >
+                  <RotateCcw className="w-4 h-4" /> Return for re-inspection
+                </button>
+              </div>
+            )}
+            <div className="mt-3 flex items-center gap-2 text-[10px] text-slate-400">
+              <MapPin className="w-3.5 h-3.5 shrink-0" />
+              <User className="w-3.5 h-3.5 shrink-0" />
+              <Calendar className="w-3.5 h-3.5 shrink-0" />
+              <span>Decisions are written to the official audit trail.</span>
             </div>
-            <div>
-              <div className="text-sm font-bold leading-tight">Request Re-inspection</div>
-              <div className="text-[11px] text-amber-100 font-medium">Send officer to re-check</div>
-            </div>
-          </button>
-
-          {/* 3. Reject */}
-          <button
-            onClick={() => onReject(inspectionCode)}
-            className="flex-1 flex items-center gap-3 p-4 rounded-2xl bg-[#dc2626] hover:bg-[#b91c1c] active:scale-[0.99] text-white transition-all shadow-sm text-left group"
-          >
-            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-              <XCircle className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <div className="text-sm font-bold leading-tight">Reject</div>
-              <div className="text-[11px] text-rose-100 font-medium">Disagree with AI findings</div>
-            </div>
-          </button>
+          </div>
         </div>
       </div>
     </div>
   );
 };
+
+const InfoRow: React.FC<{ label: string; value: string; bold?: boolean }> = ({ label, value, bold }) => (
+  <div>
+    <div className="text-slate-400 text-[11px]">{label}</div>
+    <div className={bold ? 'font-bold text-slate-800' : 'font-semibold text-slate-700'}>{value}</div>
+  </div>
+);
