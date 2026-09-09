@@ -7,8 +7,19 @@ import {
   ArrowUp,
 } from 'lucide-react';
 import { InspectorIllustration } from './InspectorIllustration';
+import { useLiveCompliance } from '../api/useLiveData';
+
+const greeting = () => {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
+};
 
 export const HeroSection: React.FC = () => {
+  const { data: c, live } = useLiveCompliance({ pass: 0, fail: 0, review: 0, passRate: 0 });
+  const total = c.pass + c.fail + c.review;
+  const adminName = (localStorage.getItem('doca_admin_name') || '').split(' ')[0];
   return (
     <div className="relative pt-2 pb-1">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
@@ -17,7 +28,7 @@ export const HeroSection: React.FC = () => {
           {/* Greeting text */}
           <div>
             <div className="text-xs font-semibold text-[#017374] tracking-wide mb-1">
-              Good morning, Aarav.
+              {greeting()}{adminName ? `, ${adminName}.` : '.'} {live ? '' : '(offline preview)'}
             </div>
             <h1 className="text-3xl sm:text-4xl font-black text-[#12312b] tracking-tight leading-tight">
               Here's what needs<br />your attention.
@@ -43,11 +54,11 @@ export const HeroSection: React.FC = () => {
                 </div>
               </div>
               <div>
-                <div className="text-2xl font-black text-slate-800 tracking-tight">471</div>
+                <div className="text-2xl font-black text-slate-800 tracking-tight">{live ? total : '—'}</div>
                 <div className="text-[11px] font-medium text-slate-400 mb-1">Inspections</div>
                 <div className="flex items-center gap-0.5 text-[11px] font-semibold text-[#10b981]">
                   <ArrowUp className="w-3 h-3 stroke-[2.5]" />
-                  <span>12% vs last month</span>
+                  <span>in live window</span>
                 </div>
               </div>
             </div>
@@ -60,11 +71,11 @@ export const HeroSection: React.FC = () => {
                 </div>
               </div>
               <div>
-                <div className="text-2xl font-black text-slate-800 tracking-tight">79%</div>
+                <div className="text-2xl font-black text-slate-800 tracking-tight">{live ? `${c.passRate}%` : '—'}</div>
                 <div className="text-[11px] font-medium text-slate-400 mb-1">Compliance</div>
                 <div className="flex items-center gap-0.5 text-[11px] font-semibold text-[#10b981]">
                   <ArrowUp className="w-3 h-3 stroke-[2.5]" />
-                  <span>3.1pp vs last month</span>
+                  <span>{c.pass} passed verdicts</span>
                 </div>
               </div>
             </div>
@@ -77,11 +88,11 @@ export const HeroSection: React.FC = () => {
                 </div>
               </div>
               <div>
-                <div className="text-2xl font-black text-slate-800 tracking-tight">103</div>
+                <div className="text-2xl font-black text-slate-800 tracking-tight">{live ? c.fail : '—'}</div>
                 <div className="text-[11px] font-medium text-slate-400 mb-1">Violations</div>
                 <div className="flex items-center gap-0.5 text-[11px] font-semibold text-[#E37820]">
                   <ArrowUp className="w-3 h-3 stroke-[2.5]" />
-                  <span>5 vs last month</span>
+                  <span>failed verdicts</span>
                 </div>
               </div>
             </div>
@@ -94,10 +105,10 @@ export const HeroSection: React.FC = () => {
                 </div>
               </div>
               <div>
-                <div className="text-2xl font-black text-slate-800 tracking-tight">7</div>
+                <div className="text-2xl font-black text-slate-800 tracking-tight">{live ? c.review : '—'}</div>
                 <div className="text-[11px] font-medium text-slate-400 mb-1">AI Decisions</div>
                 <div className="text-[11px] font-semibold text-[#E37820]">
-                  2 high priority
+                  {c.fail} high priority
                 </div>
               </div>
             </div>

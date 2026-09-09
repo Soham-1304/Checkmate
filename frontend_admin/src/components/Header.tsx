@@ -67,7 +67,7 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* User Info */}
         {(() => {
-          const adminName = localStorage.getItem('doca_admin_name') || 'DOCA Enforcement Admin';
+          const adminName = localStorage.getItem('doca_admin_name') || 'Checkmate Admin';
           const adminRole = localStorage.getItem('doca_admin_role') || 'Admin';
           const initials = adminName.split(' ').map((w) => w[0]).filter(Boolean).slice(0, 2).join('') || 'DA';
           return (

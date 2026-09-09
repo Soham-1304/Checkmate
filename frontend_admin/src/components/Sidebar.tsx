@@ -11,7 +11,6 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  ShieldCheck,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -70,15 +69,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Top Header / Logo */}
       <div className="flex flex-col">
         <div className="flex items-center gap-3 px-6 pt-7 pb-6">
-          <div className="w-10 h-10 rounded-xl bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-inner">
-            <ShieldCheck className="w-6 h-6 text-[#8EC8BA]" />
+          <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-inner shrink-0 overflow-hidden">
+            <img src="/logo-mark.png" alt="Checkmate" className="w-8 h-8 object-contain" />
           </div>
           {!collapsed && (
             <div>
               <div className="text-xl font-black tracking-tight text-white font-sans leading-tight">
-                DoCA
+                Checkmate
               </div>
-              <div className="text-[10px] text-[#8EC8BA] font-semibold tracking-wide">Legal Metrology Division</div>
+              <div className="text-[10px] text-[#8EC8BA] font-semibold tracking-wide">AI Compliance & Inspection</div>
             </div>
           )}
         </div>
@@ -148,7 +147,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* User Card */}
         {(() => {
-          const adminName = localStorage.getItem('doca_admin_name') || 'DOCA Enforcement Admin';
+          const adminName = localStorage.getItem('doca_admin_name') || 'Checkmate Admin';
           const adminRole = localStorage.getItem('doca_admin_role') || 'ADMIN';
           const initials = adminName.split(' ').map((w) => w[0]).filter(Boolean).slice(0, 2).join('') || 'DA';
           return (

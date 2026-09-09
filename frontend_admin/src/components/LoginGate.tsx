@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShieldCheck, Loader2, LogOut, AlertTriangle } from 'lucide-react';
+import { Loader2, LogOut, AlertTriangle } from 'lucide-react';
 import { isLiveConfigured } from '../api/client';
 
 const BASE = (import.meta as any).env?.VITE_API_BASE_URL ?? 'http://localhost:8000/api/v1';
@@ -31,7 +31,7 @@ export const LoginGate: React.FC<{ children: React.ReactNode }> = ({ children })
       localStorage.setItem('doca_admin_role', (data as any).role ?? '');
       setAuthed(true);
     } catch {
-      setError('Cannot reach the DoCA backend. Is it running on :8000?');
+      setError('Cannot reach the backend. Is it running on :8000?');
     } finally {
       setBusy(false);
     }
@@ -66,12 +66,12 @@ export const LoginGate: React.FC<{ children: React.ReactNode }> = ({ children })
       <div className="w-full max-w-sm">
         <div className="bg-white rounded-3xl border border-[#8EC8BA]/40 shadow-xl p-8">
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-11 h-11 rounded-2xl bg-[#017374] text-white flex items-center justify-center">
-              <ShieldCheck className="w-6 h-6" />
+            <div className="w-11 h-11 rounded-full bg-white border border-slate-200 flex items-center justify-center overflow-hidden">
+              <img src="/logo-mark.png" alt="Checkmate" className="w-9 h-9 object-contain" />
             </div>
             <div>
-              <h1 className="text-lg font-black text-[#12312b] leading-tight">DoCA Admin</h1>
-              <p className="text-[11px] text-slate-500 font-medium">Legal Metrology Compliance System</p>
+              <h1 className="text-lg font-black text-[#12312b] leading-tight">Checkmate Admin</h1>
+              <p className="text-[11px] text-slate-500 font-medium">AI Compliance & Inspection</p>
             </div>
           </div>
 
