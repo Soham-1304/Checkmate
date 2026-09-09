@@ -1,9 +1,49 @@
-import React from 'react';
-import { View, Text, StyleSheet, Pressable, SafeAreaView, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Pressable, SafeAreaView, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Colors, Typography, Spacing, Radius } from '../../src/theme';
+import { Colors, Typography, Spacing } from '../../src/theme';
+import { useAuthStore } from '../../src/store/authStore';
+import { useRouter } from 'expo-router';
 
 export default function ProfileScreen() {
+  const { user, logout } = useAuthStore();
+  const router = useRouter();
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            setLoggingOut(true);
+            try {
+              await logout();
+              router.replace('/login');
+            } catch {
+              Alert.alert('Error', 'Failed to sign out. Please try again.');
+            } finally {
+              setLoggingOut(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  // ── Derive display values from live user or fallback
+  const displayName = user?.name ?? 'Officer';
+  const displayRole = user?.role
+    ? user.role.charAt(0) + user.role.slice(1).toLowerCase().replace('_', ' ')
+    : 'Inspector';
+  const displayEmail = user?.email ?? '';
+  const avatarInitial = displayName.charAt(0).toUpperCase();
+  const officerId = user?.id ? `ID: ${user.id.slice(0, 12).toUpperCase()}` : '';
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
@@ -11,16 +51,21 @@ export default function ProfileScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        
+
         {/* Profile Card */}
         <View style={styles.profileCard}>
           <View style={styles.avatarContainer}>
-            <Text style={styles.avatarText}>A</Text>
+            <Text style={styles.avatarText}>{avatarInitial}</Text>
           </View>
           <View style={styles.profileInfo}>
-            <Text style={[Typography.titleMedium, { color: Colors.textInverse, fontWeight: '600' }]}>Aarav Verma</Text>
-            <Text style={[Typography.bodyMedium, { color: Colors.textInverse, opacity: 0.9, marginTop: 2 }]}>Inspector</Text>
-            <Text style={[Typography.labelSmall, { color: Colors.textInverse, opacity: 0.7, marginTop: 8 }]}>ID: INSP-2024-1256</Text>
+            <Text style={[Typography.titleMedium, { color: Colors.textInverse, fontWeight: '600' }]}>{displayName}</Text>
+            <Text style={[Typography.bodyMedium, { color: Colors.textInverse, opacity: 0.9, marginTop: 2 }]}>{displayRole}</Text>
+            {displayEmail ? (
+              <Text style={[Typography.labelSmall, { color: Colors.textInverse, opacity: 0.7, marginTop: 4 }]}>{displayEmail}</Text>
+            ) : null}
+            {officerId ? (
+              <Text style={[Typography.labelSmall, { color: Colors.textInverse, opacity: 0.6, marginTop: 2 }]}>{officerId}</Text>
+            ) : null}
           </View>
         </View>
 
@@ -58,6 +103,16 @@ export default function ProfileScreen() {
           </Pressable>
         </View>
 
+        {/* Logout Button */}
+        <Pressable style={styles.logoutButton} onPress={handleLogout} disabled={loggingOut}>
+          {loggingOut ? (
+            <ActivityIndicator size="small" color="#C62828" />
+          ) : (
+            <MaterialIcons name="logout" size={20} color="#C62828" />
+          )}
+          <Text style={styles.logoutText}>{loggingOut ? 'Signing out…' : 'Sign Out'}</Text>
+        </Pressable>
+
       </ScrollView>
     </SafeAreaView>
   );
@@ -74,7 +129,7 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.sm,
-    paddingBottom: 100, // Space for bottom nav
+    paddingBottom: 100,
   },
   profileCard: {
     backgroundColor: Colors.primary,
@@ -95,14 +150,14 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     backgroundColor: 'transparent',
     borderWidth: 2,
-    borderColor: '#4DB6AC', // Lighter teal border
+    borderColor: '#4DB6AC',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: Spacing.lg,
   },
   avatarText: {
     fontSize: 28,
-    color: '#E0F2F1', // Very light teal
+    color: '#E0F2F1',
     fontWeight: '600',
   },
   profileInfo: {
@@ -124,5 +179,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.textPrimary,
     fontWeight: '400',
-  }
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: Spacing.xxl,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#FFCDD2',
+    backgroundColor: '#FFF8F8',
+    gap: 8,
+  },
+  logoutText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#C62828',
+  },
 });

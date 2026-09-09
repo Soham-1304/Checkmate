@@ -75,10 +75,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
           {!collapsed && (
             <div>
-              <div className="text-xl font-bold tracking-tight text-white font-sans leading-tight">
-                ComplyAI
+              <div className="text-xl font-black tracking-tight text-white font-sans leading-tight">
+                DoCA
               </div>
-              <div className="text-[10px] text-[#8EC8BA]/80 font-medium">Legal Metrology</div>
+              <div className="text-[10px] text-[#8EC8BA] font-semibold tracking-wide">Legal Metrology Division</div>
             </div>
           )}
         </div>
@@ -147,21 +147,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </button>
 
         {/* User Card */}
-        <div
-          className={`flex items-center gap-3 p-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/10 ${
-            collapsed ? 'justify-center p-2' : ''
-          }`}
-        >
-          <div className="w-9 h-9 rounded-full bg-[#015758] border-2 border-[#8EC8BA]/60 flex items-center justify-center font-bold text-xs text-white shadow-sm shrink-0">
-            RV
-          </div>
-          {!collapsed && (
-            <div className="truncate">
-              <div className="text-xs font-bold text-white truncate">Rajesh Verma</div>
-              <div className="text-[11px] text-[#8EC8BA] truncate">Sr. Inspector - D4</div>
+        {(() => {
+          const adminName = localStorage.getItem('doca_admin_name') || 'DOCA Enforcement Admin';
+          const adminRole = localStorage.getItem('doca_admin_role') || 'ADMIN';
+          const initials = adminName.split(' ').map((w) => w[0]).filter(Boolean).slice(0, 2).join('') || 'DA';
+          return (
+            <div
+              className={`flex items-center gap-3 p-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/10 ${
+                collapsed ? 'justify-center p-2' : ''
+              }`}
+            >
+              <div className="w-9 h-9 rounded-full bg-[#015758] border-2 border-[#8EC8BA]/60 flex items-center justify-center font-bold text-xs text-white shadow-sm shrink-0">
+                {initials}
+              </div>
+              {!collapsed && (
+                <div className="truncate">
+                  <div className="text-xs font-bold text-white truncate">{adminName}</div>
+                  <div className="text-[11px] text-[#8EC8BA] font-semibold truncate capitalize">{adminRole.toLowerCase()}</div>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          );
+        })()}
       </div>
     </aside>
   );

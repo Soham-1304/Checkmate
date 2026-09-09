@@ -9,6 +9,7 @@ from app.core.exceptions import EntityNotFoundException, InvalidWorkflowStateExc
 from app.deps import get_current_user, get_db, require_roles
 from app.models.compliance import AuditEvent
 from app.models.evidence import Declaration
+from app.models.master_data import Commodity
 from app.models.rules import RuleSet
 from app.models.user import User
 from app.models.workflow import Inspection
@@ -73,7 +74,13 @@ async def list_inspections(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    stmt = select(Inspection).order_by(desc(Inspection.created_at)).offset(offset).limit(limit)
+    stmt = (
+        select(Inspection)
+        .options(selectinload(Inspection.commodity).selectinload(Commodity.brand))
+        .order_by(desc(Inspection.created_at))
+        .offset(offset)
+        .limit(limit)
+    )
 
     # Officers only see their own inspections unless Reviewer/Admin
     if current_user.role.name == "OFFICER":
@@ -85,7 +92,16 @@ async def list_inspections(
         stmt = stmt.where(Inspection.status == status_filter.upper())
 
     result = await db.execute(stmt)
-    return result.scalars().all()
+    inspections = result.scalars().all()
+    outs = []
+    for i in inspections:
+        out = InspectionOut.model_validate(i)
+        if i.commodity:
+            out.commodity_name = i.commodity.generic_name
+            if i.commodity.brand:
+                out.brand_name = i.commodity.brand.name
+        outs.append(out)
+    return outs
 
 
 @router.get("/{inspection_id}", response_model=InspectionDetailOut)
@@ -97,6 +113,7 @@ async def get_inspection(
     stmt = (
         select(Inspection)
         .options(
+            selectinload(Inspection.commodity).selectinload(Commodity.brand),
             selectinload(Inspection.evidence_items),
             selectinload(Inspection.declarations).selectinload(Declaration.field_definition),
             selectinload(Inspection.findings),
@@ -115,6 +132,11 @@ async def get_inspection(
         )
 
     base = InspectionOut.model_validate(inspection)
+    if inspection.commodity:
+        base.commodity_name = inspection.commodity.generic_name
+        if inspection.commodity.brand:
+            base.brand_name = inspection.commodity.brand.name
+
     declarations = [
         DeclarationOut(
             id=d.id,

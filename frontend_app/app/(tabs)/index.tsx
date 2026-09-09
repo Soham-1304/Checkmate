@@ -1,27 +1,49 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Pressable, SafeAreaView, Modal, Alert } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, ScrollView, StyleSheet, Pressable, SafeAreaView, Modal, Alert, ActivityIndicator, RefreshControl } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors, Typography, Spacing, Radius } from '../../src/theme';
 import { useAuthStore } from '../../src/store/authStore';
-import { useStatsStore } from '../../src/store/statsStore';
-import { useInspectionLogStore } from '../../src/store/inspectionLogStore';
 import { useRouter } from 'expo-router';
 import { AppDrawer } from '../../src/components/AppDrawer';
+import { fetchOfficerDashboard, fetchCommodities, OfficerDashboard, Commodity } from '../../src/api/doca';
 
 export default function HomeScreen() {
   const user = useAuthStore((state) => state.user);
-  const stats = useStatsStore();
-  const logStore = useInspectionLogStore();
   const router = useRouter();
-  
+
   const [isDrawerVisible, setDrawerVisible] = useState(false);
-  const [notificationCount, setNotificationCount] = useState(0);
-  
+  const [notificationCount] = useState(0);
   const [selectedPeriod, setSelectedPeriod] = useState('This Month');
   const [showDropdown, setShowDropdown] = useState(false);
 
+  // ── Live dashboard data
+  const [dashboard, setDashboard] = useState<OfficerDashboard | null>(null);
+  const [commoditiesMap, setCommoditiesMap] = useState<Record<string, Commodity>>({});
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
   const periods = ['This Week', 'This Month', 'This Year'];
+
+  const loadDashboard = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true); else setLoading(true);
+    try {
+      const [data, commodities] = await Promise.all([
+        fetchOfficerDashboard(),
+        fetchCommodities().catch(() => [] as Commodity[]),
+      ]);
+      setDashboard(data);
+      const map = Object.fromEntries(commodities.map((c) => [c.id, c]));
+      setCommoditiesMap(map);
+    } catch {
+      Alert.alert('Sync failed', 'Could not load dashboard. Check your connection.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => { loadDashboard(); }, [loadDashboard]);
 
   const handlePeriodSelect = (period: string) => {
     setSelectedPeriod(period);
@@ -29,44 +51,40 @@ export default function HomeScreen() {
   };
 
   const pickImage = async () => {
-    // No permissions request is necessary for launching the image library
-    let result = await ImagePicker.launchImageLibraryAsync({
+    const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       quality: 1,
     });
-
     if (!result.canceled) {
-      // Simulate real-time usage: A new image upload adds an inspection to "In Progress"
-      stats.incrementInProgress();
-      
-      // Add a log entry for the recent activity timeline
-      const now = new Date();
-      const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      logStore.addLog({
-        time: 'Today',
-        productName: 'Recent Scan',
-        companyName: 'Pending Detection',
-        officerName: user?.name?.split(' ')[0] || 'Officer',
-        status: 'Pending',
-        imageUri: result.assets[0].uri,
-        score: 0,
-      });
-      
-      // In a real app, we would route to analysis screen with the image URI
-      // router.push({ pathname: '/analysis/[id]', params: { imageUri: result.assets[0].uri } });
-      Alert.alert('Analysis Started', 'Image successfully uploaded! It is now marked as "In Progress" in your dashboard.', [{ text: 'OK' }]);
+      Alert.alert('Upload Started', 'Use the Scanner tab to run a full inspection with this image.');
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Pending': return '#E6771A';
-      case 'Approved': return Colors.primary;
-      case 'Rejected': return Colors.nonCompliant;
-      case 'AI Review': return '#69B6A1';
+  // ── Derived stats from live data
+  const totalChecked = dashboard?.my_total_inspections ?? 0;
+  const pendingAssignments = dashboard?.my_pending_assignments ?? 0;
+  const todayCount = dashboard?.today_count ?? 0;
+  const completionPct = dashboard
+    ? Math.round((dashboard.my_completion_rate ?? 0) * 100)
+    : 0;
+
+  const getStatusColor = (result: string | null) => {
+    switch (result) {
+      case 'PASS': return Colors.primary;
+      case 'FAIL': return Colors.nonCompliant;
+      case 'REVIEW': return '#E6771A';
       default: return Colors.textSecondary;
     }
+  };
+
+  const getStatusLabel = (status: string, result: string | null) => {
+    if (result === 'PASS') return 'Compliant';
+    if (result === 'FAIL') return 'Non-Compliant';
+    if (result === 'REVIEW') return 'AI Review';
+    if (status === 'COMPLETED') return 'Completed';
+    if (status === 'UNDER_REVIEW') return 'Under Review';
+    return 'Pending';
   };
 
   const getGreeting = () => {
@@ -81,8 +99,12 @@ export default function HomeScreen() {
       <Modal visible={isDrawerVisible} animationType="fade" transparent={true}>
         <AppDrawer onClose={() => setDrawerVisible(false)} />
       </Modal>
-      <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
-        
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadDashboard(true)} tintColor={Colors.primary} />}
+      >
         {/* Header */}
         <View style={styles.header}>
           <Pressable style={styles.headerIcon} onPress={() => setDrawerVisible(true)}>
@@ -109,13 +131,11 @@ export default function HomeScreen() {
         {/* Greeting Section */}
         <View style={styles.greetingSection}>
           <Text style={[Typography.bodyMedium, { color: Colors.textSecondary, marginBottom: 4 }]}>
-            {getGreeting()}, {user?.name?.split(' ')[0] || 'Aarav'} 👋
+            {getGreeting()}, {user?.name?.split(' ')[0] || 'Officer'} 👋
           </Text>
           <Text style={[Typography.displaySmall, { color: Colors.primary, fontWeight: '800', width: '70%' }]}>
             Let's make compliance effortless.
           </Text>
-          
-          {/* Decorative dots - simplified representation */}
           <View style={styles.decorativeDots}>
             {[...Array(9)].map((_, i) => (
               <View key={i} style={styles.dot} />
@@ -131,23 +151,19 @@ export default function HomeScreen() {
           <Text style={[Typography.bodySmall, { color: 'rgba(255,255,255,0.8)', marginTop: 8, marginBottom: 24 }]}>
             AI-powered label analysis{'\n'}in seconds
           </Text>
-
           <View style={styles.heroIconContainer}>
             <MaterialIcons name="document-scanner" size={40} color={Colors.textInverse} style={{ opacity: 0.8 }} />
           </View>
-
           <Pressable style={styles.scanButton} onPress={() => router.push('/scanner')}>
             <MaterialIcons name="center-focus-strong" size={20} color={Colors.primary} />
             <Text style={[Typography.button, { color: Colors.primary, marginLeft: 8 }]}>Scan Label</Text>
             <MaterialIcons name="camera-alt" size={20} color={Colors.primary} style={{ position: 'absolute', right: 16 }} />
           </Pressable>
-
           <View style={styles.orContainer}>
             <View style={styles.divider} />
             <Text style={[Typography.labelSmall, { color: 'rgba(255,255,255,0.6)', marginHorizontal: 8 }]}>or</Text>
             <View style={styles.divider} />
           </View>
-
           <Pressable style={styles.uploadButton} onPress={pickImage}>
             <Text style={[Typography.button, { color: Colors.textInverse }]}>Upload Image</Text>
             <MaterialIcons name="cloud-upload" size={20} color={Colors.textInverse} style={{ marginLeft: 8 }} />
@@ -160,21 +176,13 @@ export default function HomeScreen() {
           <View style={{ position: 'relative' }}>
             <Pressable style={styles.dropdown} onPress={() => setShowDropdown(!showDropdown)}>
               <Text style={[Typography.labelMedium, { color: Colors.textSecondary }]}>{selectedPeriod}</Text>
-              <MaterialIcons name={showDropdown ? "keyboard-arrow-up" : "keyboard-arrow-down"} size={16} color={Colors.textSecondary} />
+              <MaterialIcons name={showDropdown ? 'keyboard-arrow-up' : 'keyboard-arrow-down'} size={16} color={Colors.textSecondary} />
             </Pressable>
-
             {showDropdown && (
               <View style={styles.dropdownMenu}>
                 {periods.map((period) => (
-                  <Pressable 
-                    key={period} 
-                    style={styles.dropdownItem} 
-                    onPress={() => handlePeriodSelect(period)}
-                  >
-                    <Text style={[
-                      Typography.labelMedium, 
-                      { color: period === selectedPeriod ? Colors.primary : Colors.textPrimary, fontWeight: period === selectedPeriod ? '600' : '400' }
-                    ]}>
+                  <Pressable key={period} style={styles.dropdownItem} onPress={() => handlePeriodSelect(period)}>
+                    <Text style={[Typography.labelMedium, { color: period === selectedPeriod ? Colors.primary : Colors.textPrimary, fontWeight: period === selectedPeriod ? '600' : '400' }]}>
                       {period}
                     </Text>
                   </Pressable>
@@ -185,45 +193,53 @@ export default function HomeScreen() {
         </View>
 
         {/* Stats Grid */}
-        <View style={styles.statsGrid}>
-          {/* Checked */}
-          <View style={[styles.statBox, { backgroundColor: Colors.primary }]}>
-            <MaterialIcons name="check-circle-outline" size={20} color={Colors.textInverse} />
-            <Text style={[Typography.headlineMedium, { color: Colors.textInverse, marginTop: 8, marginBottom: 2 }]}>{stats.checked}</Text>
-            <Text style={[Typography.labelSmall, { color: 'rgba(255,255,255,0.8)' }]}>Checked</Text>
+        {loading ? (
+          <View style={{ paddingVertical: 32, alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={Colors.primary} />
           </View>
+        ) : (
+          <View style={styles.statsGrid}>
+            <View style={[styles.statBox, { backgroundColor: Colors.primary }]}>
+              <MaterialIcons name="check-circle-outline" size={20} color={Colors.textInverse} />
+              <Text style={[Typography.headlineMedium, { color: Colors.textInverse, marginTop: 8, marginBottom: 2 }]}>{totalChecked}</Text>
+              <Text style={[Typography.labelSmall, { color: 'rgba(255,255,255,0.8)' }]}>Total</Text>
+            </View>
 
-          {/* Issues */}
-          <View style={[styles.statBox, { backgroundColor: Colors.nonCompliant }]}>
-            <MaterialIcons name="warning-amber" size={20} color={Colors.textInverse} />
-            <Text style={[Typography.headlineMedium, { color: Colors.textInverse, marginTop: 8, marginBottom: 2 }]}>{stats.issues}</Text>
-            <Text style={[Typography.labelSmall, { color: 'rgba(255,255,255,0.8)' }]}>Issues</Text>
-          </View>
+            <View style={[styles.statBox, { backgroundColor: Colors.inProgress }]}>
+              <MaterialIcons name="today" size={20} color={Colors.textPrimary} />
+              <Text style={[Typography.headlineMedium, { color: Colors.textPrimary, marginTop: 8, marginBottom: 2 }]}>{todayCount}</Text>
+              <Text style={[Typography.labelSmall, { color: 'rgba(0,0,0,0.6)' }]}>Today</Text>
+            </View>
 
-          {/* In Progress */}
-          <View style={[styles.statBox, { backgroundColor: Colors.inProgress }]}>
-            <MaterialIcons name="schedule" size={20} color={Colors.textPrimary} />
-            <Text style={[Typography.headlineMedium, { color: Colors.textPrimary, marginTop: 8, marginBottom: 2 }]}>{stats.inProgress}</Text>
-            <Text style={[Typography.labelSmall, { color: 'rgba(0,0,0,0.6)' }]}>In Progress</Text>
-          </View>
+            <View style={[styles.statBox, { backgroundColor: Colors.nonCompliant }]}>
+              <MaterialIcons name="assignment-late" size={20} color={Colors.textInverse} />
+              <Text style={[Typography.headlineMedium, { color: Colors.textInverse, marginTop: 8, marginBottom: 2 }]}>{pendingAssignments}</Text>
+              <Text style={[Typography.labelSmall, { color: 'rgba(255,255,255,0.8)' }]}>Pending</Text>
+            </View>
 
-          {/* Compliant */}
-          <View style={[styles.statBox, { backgroundColor: Colors.successLight }]}>
-            <MaterialIcons name="verified-user" size={20} color={Colors.primary} />
-            <Text style={[Typography.headlineMedium, { color: Colors.primary, marginTop: 8, marginBottom: 2 }]}>{stats.compliant}</Text>
-            <Text style={[Typography.labelSmall, { color: Colors.primary } ]}>Compliant</Text>
+            <View style={[styles.statBox, { backgroundColor: Colors.successLight }]}>
+              <MaterialIcons name="verified-user" size={20} color={Colors.primary} />
+              <Text style={[Typography.headlineMedium, { color: Colors.primary, marginTop: 8, marginBottom: 2 }]}>{completionPct}%</Text>
+              <Text style={[Typography.labelSmall, { color: Colors.primary }]}>Done</Text>
+            </View>
           </View>
-        </View>
+        )}
 
         {/* Recent Activity Log */}
         <View style={styles.recentActivityHeader}>
           <Text style={[Typography.labelSmall, { color: Colors.primary, letterSpacing: 1, textTransform: 'uppercase', fontWeight: '700' }]}>RECENT ACTIVITY</Text>
-          <Pressable><Text style={[Typography.labelMedium, { color: Colors.primary, fontWeight: '600' }]}>View all &rarr;</Text></Pressable>
+          <Pressable onPress={() => router.push('/(tabs)/inspections' as any)}>
+            <Text style={[Typography.labelMedium, { color: Colors.primary, fontWeight: '600' }]}>View all →</Text>
+          </Pressable>
         </View>
         <Text style={[Typography.titleMedium, { paddingHorizontal: Spacing.screenHorizontal, marginBottom: Spacing.md, fontWeight: '700' }]}>Latest inspection log</Text>
 
         <View style={styles.timelineContainer}>
-          {logStore.logs.length === 0 ? (
+          {loading ? (
+            <View style={styles.emptyStateContainer}>
+              <ActivityIndicator size="small" color={Colors.primary} />
+            </View>
+          ) : !dashboard?.recent_activity?.length ? (
             <View style={styles.emptyStateContainer}>
               <MaterialIcons name="history" size={48} color={Colors.borderLight} />
               <Text style={[Typography.bodyMedium, { color: Colors.textTertiary, marginTop: 12, textAlign: 'center', paddingHorizontal: 32 }]}>
@@ -231,41 +247,52 @@ export default function HomeScreen() {
               </Text>
             </View>
           ) : (
-            logStore.logs.map((log, index) => (
-              <View key={log.id} style={styles.timelineItem}>
-                {/* Timeline line and dot */}
-                <View style={styles.timelineLeft}>
-                  <View style={[styles.timelineLine, index === logStore.logs.length - 1 && { backgroundColor: 'transparent' }]} />
-                  <View style={[styles.timelineDot, { borderColor: getStatusColor(log.status) }]} >
-                     {log.status === 'Pending' && <View style={[styles.timelineDotInner, { backgroundColor: getStatusColor(log.status) }]} />}
-                  </View>
-                </View>
+            dashboard.recent_activity.map((item, index) => {
+              const brand = item.brand_name || (item.commodity_id && commoditiesMap[item.commodity_id]?.brand_name) || '';
+              const commodity = item.commodity_name || (item.commodity_id && commoditiesMap[item.commodity_id]?.generic_name) || '';
 
-                {/* Card content */}
-                <View style={styles.timelineCard}>
-                  <View style={styles.timelineRow}>
-                    <View style={{ width: 70 }}>
-                      <Text style={[Typography.labelSmall, { color: Colors.textSecondary, fontSize: 10 }]}>Today {log.time}</Text>
-                      <Text style={[Typography.labelSmall, { color: Colors.primary, fontWeight: '700', marginTop: 2, fontSize: 11 }]}>{log.id}</Text>
+              return (
+                <Pressable key={item.id} onPress={() => router.push(`/analysis/${item.id}` as any)}>
+                  <View style={styles.timelineItem}>
+                    <View style={styles.timelineLeft}>
+                      <View style={[styles.timelineLine, index === (dashboard.recent_activity.length - 1) && { backgroundColor: 'transparent' }]} />
+                      <View style={[styles.timelineDot, { borderColor: getStatusColor(item.compliance_result) }]}>
+                        {!item.compliance_result && <View style={[styles.timelineDotInner, { backgroundColor: Colors.textSecondary }]} />}
+                      </View>
                     </View>
-                    <View style={{ flex: 1, paddingHorizontal: 6 }}>
-                      <Text style={[Typography.labelMedium, { fontWeight: '700' }]} numberOfLines={1}>{log.productName}</Text>
-                      <Text style={[Typography.bodySmall, { color: Colors.textSecondary, marginTop: 2, fontSize: 11 }]} numberOfLines={1}>{log.companyName}</Text>
-                    </View>
-                    <View style={{ width: 60, alignItems: 'flex-start' }}>
-                      <Text style={[Typography.labelSmall, { color: Colors.textSecondary, fontSize: 9 }]}>Officer</Text>
-                      <Text style={[Typography.labelSmall, { fontWeight: '600', fontSize: 11 }]} numberOfLines={1}>{log.officerName}</Text>
-                    </View>
-                    <View style={{ width: 75, alignItems: 'flex-end', justifyContent: 'center' }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: getStatusColor(log.status), marginRight: 4 }} />
-                        <Text style={[Typography.labelSmall, { color: getStatusColor(log.status), fontWeight: '600', fontSize: 11 }]}>{log.status}</Text>
+
+                    <View style={styles.timelineCard}>
+                      <View style={styles.timelineRow}>
+                        <View style={{ width: 85 }}>
+                          <Text style={[Typography.labelSmall, { color: Colors.textSecondary, fontSize: 10 }]}>
+                            {new Date(item.created_at).toLocaleDateString()}
+                          </Text>
+                          <Text style={[Typography.labelSmall, { color: Colors.textTertiary, marginTop: 2, fontSize: 10, fontWeight: '600' }]} numberOfLines={1}>
+                            {item.status.replace('_', ' ')}
+                          </Text>
+                        </View>
+                        <View style={{ flex: 1, paddingHorizontal: 6 }}>
+                          <Text style={[Typography.labelMedium, { fontWeight: '700', color: Colors.primary }]} numberOfLines={1}>
+                            {brand ? String(brand) : (commodity ? String(commodity) : 'Inspection Log')}
+                          </Text>
+                          <Text style={[Typography.bodySmall, { color: Colors.textSecondary, marginTop: 1, fontSize: 11 }]} numberOfLines={1}>
+                            {commodity && brand ? String(commodity) : 'Tap to view details'}
+                          </Text>
+                        </View>
+                        <View style={{ width: 88, alignItems: 'flex-end', justifyContent: 'center' }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: getStatusColor(item.compliance_result), marginRight: 4 }} />
+                            <Text style={[Typography.labelSmall, { color: getStatusColor(item.compliance_result), fontWeight: '600', fontSize: 11 }]}>
+                              {getStatusLabel(item.status, item.compliance_result)}
+                            </Text>
+                          </View>
+                        </View>
                       </View>
                     </View>
                   </View>
-                </View>
-              </View>
-            ))
+                </Pressable>
+              );
+            })
           )}
         </View>
 
@@ -277,7 +304,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.background },
   container: { flex: 1 },
-  content: { paddingBottom: 100 }, // Extra padding for bottom nav
+  contentContainer: { paddingBottom: 100 },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -453,7 +480,7 @@ const styles = StyleSheet.create({
   timelineLine: {
     position: 'absolute',
     top: 24,
-    bottom: -16, 
+    bottom: -16,
     width: 1,
     backgroundColor: Colors.borderLight,
   },
@@ -463,7 +490,7 @@ const styles = StyleSheet.create({
     borderRadius: 7,
     borderWidth: 2,
     backgroundColor: Colors.surface,
-    marginTop: 18, 
+    marginTop: 18,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1,

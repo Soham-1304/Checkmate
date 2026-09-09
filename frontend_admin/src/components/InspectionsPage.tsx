@@ -20,6 +20,7 @@ import {
 import { InspectorIllustration } from './InspectorIllustration';
 import { ProductMockup } from './ProductMockup';
 import { INSPECTIONS_LIST_DATA, InspectionDetailRow } from '../data/inspectionsData';
+import { useLiveInspections } from '../api/useLiveData';
 
 interface InspectionsPageProps {
   onOpenNewInspection: () => void;
@@ -35,9 +36,22 @@ export const InspectionsPage: React.FC<InspectionsPageProps> = ({
   const [selectedCompliance, setSelectedCompliance] = useState('All');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const { data: liveInspections } = useLiveInspections(INSPECTIONS_LIST_DATA);
+
+  const stats = React.useMemo(() => {
+    const total = liveInspections.length;
+    const count = (c: string) => liveInspections.filter((i) => i.compliance === c).length;
+    const compliant = count('Compliant');
+    const minor = count('Minor');
+    const major = count('Major');
+    const critical = count('Critical');
+    const aiReview = liveInspections.filter((i) => i.status === 'AI Review').length;
+    const pct = (n: number) => (total ? Math.round((n / total) * 100) : 0);
+    return { total, compliant, minor, major, critical, aiReview, pct };
+  }, [liveInspections]);
 
   // Filter inspections
-  const filteredInspections = INSPECTIONS_LIST_DATA.filter((item) => {
+  const filteredInspections = liveInspections.filter((item) => {
     const matchesQuery =
       item.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -52,6 +66,11 @@ export const InspectionsPage: React.FC<InspectionsPageProps> = ({
 
     return matchesQuery && matchesStatus && matchesCompliance;
   });
+
+  const PAGE_SIZE = 8;
+  const totalPages = Math.max(1, Math.ceil(filteredInspections.length / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+  const pageRows = filteredInspections.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const toggleSelectAll = () => {
     if (selectedIds.length === filteredInspections.length) {
@@ -96,11 +115,11 @@ export const InspectionsPage: React.FC<InspectionsPageProps> = ({
                 <div className="w-6 h-6 rounded-lg bg-[#E5F0EC] text-[#017374] flex items-center justify-center mb-1.5">
                   <ClipboardCheck className="w-3.5 h-3.5 stroke-[2.2]" />
                 </div>
-                <div className="text-xl font-black text-slate-800">471</div>
+                <div className="text-xl font-black text-slate-800">{stats.total}</div>
                 <div className="text-[10px] text-slate-400 font-medium leading-none mb-1">Total Inspections</div>
                 <div className="flex items-center gap-0.5 text-[10px] font-bold text-[#017374]">
                   <ArrowUp className="w-2.5 h-2.5 stroke-[2.5]" />
-                  <span>12% vs last month</span>
+                  <span>{stats.pct(stats.total)}% of window</span>
                 </div>
               </div>
 
@@ -109,11 +128,10 @@ export const InspectionsPage: React.FC<InspectionsPageProps> = ({
                 <div className="w-6 h-6 rounded-lg bg-[#E5F0EC] text-[#017374] flex items-center justify-center mb-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5 stroke-[2.2]" />
                 </div>
-                <div className="text-xl font-black text-slate-800">373</div>
+                <div className="text-xl font-black text-slate-800">{stats.compliant}</div>
                 <div className="text-[10px] text-slate-400 font-medium leading-none mb-1">Compliant</div>
                 <div className="flex items-center gap-0.5 text-[10px] font-bold text-[#017374]">
-                  <ArrowUp className="w-2.5 h-2.5 stroke-[2.5]" />
-                  <span>79%</span>
+                  <span>{stats.pct(stats.compliant)}% of total</span>
                 </div>
               </div>
 
@@ -122,10 +140,10 @@ export const InspectionsPage: React.FC<InspectionsPageProps> = ({
                 <div className="w-6 h-6 rounded-lg bg-[#fefce8] text-[#FEB519] flex items-center justify-center mb-1.5">
                   <AlertTriangle className="w-3.5 h-3.5 stroke-[2.2]" />
                 </div>
-                <div className="text-xl font-black text-slate-800">62</div>
+                <div className="text-xl font-black text-slate-800">{stats.minor}</div>
                 <div className="text-[10px] text-slate-400 font-medium leading-none mb-1">Minor</div>
                 <div className="flex items-center gap-0.5 text-[10px] font-bold text-[#FEB519]">
-                  <span>▲ 13%</span>
+                  <span>{stats.pct(stats.minor)}% of total</span>
                 </div>
               </div>
 
@@ -134,10 +152,10 @@ export const InspectionsPage: React.FC<InspectionsPageProps> = ({
                 <div className="w-6 h-6 rounded-lg bg-[#fff7ed] text-[#E37820] flex items-center justify-center mb-1.5">
                   <AlertOctagon className="w-3.5 h-3.5 stroke-[2.2]" />
                 </div>
-                <div className="text-xl font-black text-slate-800">28</div>
+                <div className="text-xl font-black text-slate-800">{stats.major}</div>
                 <div className="text-[10px] text-slate-400 font-medium leading-none mb-1">Major</div>
                 <div className="flex items-center gap-0.5 text-[10px] font-bold text-[#E37820]">
-                  <span>● 6%</span>
+                  <span>{stats.pct(stats.major)}% of total</span>
                 </div>
               </div>
 
@@ -146,10 +164,10 @@ export const InspectionsPage: React.FC<InspectionsPageProps> = ({
                 <div className="w-6 h-6 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center mb-1.5">
                   <AlertOctagon className="w-3.5 h-3.5 stroke-[2.2]" />
                 </div>
-                <div className="text-xl font-black text-slate-800">8</div>
+                <div className="text-xl font-black text-slate-800">{stats.critical}</div>
                 <div className="text-[10px] text-slate-400 font-medium leading-none mb-1">Critical</div>
                 <div className="flex items-center gap-0.5 text-[10px] font-bold text-rose-600">
-                  <span>● 2%</span>
+                  <span>{stats.pct(stats.critical)}% of total</span>
                 </div>
               </div>
 
@@ -158,21 +176,21 @@ export const InspectionsPage: React.FC<InspectionsPageProps> = ({
                 <div className="w-6 h-6 rounded-lg bg-[#fff7ed] text-[#E37820] flex items-center justify-center mb-1.5">
                   <Sparkles className="w-3.5 h-3.5 stroke-[2.2]" />
                 </div>
-                <div className="text-xl font-black text-slate-800">7</div>
+                <div className="text-xl font-black text-slate-800">{stats.aiReview}</div>
                 <div className="text-[10px] text-slate-400 font-medium leading-none mb-1">AI Review</div>
                 <div className="flex items-center gap-0.5 text-[10px] font-bold text-[#E37820]">
                   <ArrowUp className="w-2.5 h-2.5 stroke-[2.5]" />
-                  <span>1%</span>
+                  <span>{stats.aiReview} pending</span>
                 </div>
               </div>
             </div>
 
             {/* Segmented Multi-Color Progress Bar */}
             <div className="w-full h-2 rounded-full overflow-hidden flex shadow-2xs">
-              <div className="h-full bg-[#017374]" style={{ width: '79%' }} title="Compliant 79%" />
-              <div className="h-full bg-[#FEB519]" style={{ width: '13%' }} title="Minor 13%" />
-              <div className="h-full bg-[#E37820]" style={{ width: '6%' }} title="Major 6%" />
-              <div className="h-full bg-[#ef4444]" style={{ width: '2%' }} title="Critical 2%" />
+              <div className="h-full bg-[#017374]" style={{ width: `${stats.pct(stats.compliant)}%` }} title={`Compliant ${stats.pct(stats.compliant)}%`} />
+              <div className="h-full bg-[#FEB519]" style={{ width: `${stats.pct(stats.minor)}%` }} title={`Minor ${stats.pct(stats.minor)}%`} />
+              <div className="h-full bg-[#E37820]" style={{ width: `${stats.pct(stats.major)}%` }} title={`Major ${stats.pct(stats.major)}%`} />
+              <div className="h-full bg-[#ef4444]" style={{ width: `${stats.pct(stats.critical)}%` }} title={`Critical ${stats.pct(stats.critical)}%`} />
             </div>
           </div>
 
@@ -270,32 +288,34 @@ export const InspectionsPage: React.FC<InspectionsPageProps> = ({
           </div>
 
           <div className="flex items-center gap-4">
-            <span className="text-slate-400">Showing 1-{filteredInspections.length} of 471</span>
+            <span className="text-slate-400">Showing {pageRows.length} of {filteredInspections.length} (total {stats.total})</span>
             {/* Pagination */}
             <div className="flex items-center gap-1">
               <button
-                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(Math.max(1, safePage - 1))}
+                disabled={safePage === 1}
                 className="w-7 h-7 rounded-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50 disabled:opacity-40"
               >
                 <ChevronLeft className="w-3.5 h-3.5 text-slate-600" />
               </button>
-              <button className="w-7 h-7 rounded-lg bg-[#017374] text-white font-bold flex items-center justify-center shadow-xs">
-                1
-              </button>
-              <button className="w-7 h-7 rounded-lg hover:bg-slate-50 font-medium text-slate-600 flex items-center justify-center">
-                2
-              </button>
-              <button className="w-7 h-7 rounded-lg hover:bg-slate-50 font-medium text-slate-600 flex items-center justify-center">
-                3
-              </button>
-              <button className="w-7 h-7 rounded-lg hover:bg-slate-50 font-medium text-slate-600 flex items-center justify-center">
-                4
-              </button>
-              <span className="px-1 text-slate-400">...</span>
-              <button className="w-7 h-7 rounded-lg hover:bg-slate-50 font-medium text-slate-600 flex items-center justify-center">
-                24
-              </button>
-              <button className="w-7 h-7 rounded-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50">
+              {Array.from({ length: totalPages }).map((_, i) => (
+                <button
+                  key={i + 1}
+                  onClick={() => setCurrentPage(i + 1)}
+                  className={`w-7 h-7 rounded-lg font-medium flex items-center justify-center ${
+                    safePage === i + 1
+                      ? 'bg-[#017374] text-white font-bold shadow-xs'
+                      : 'hover:bg-slate-50 text-slate-600'
+                  }`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+              <button
+                onClick={() => setCurrentPage(Math.min(totalPages, safePage + 1))}
+                disabled={safePage === totalPages}
+                className="w-7 h-7 rounded-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50 disabled:opacity-40"
+              >
                 <ChevronRight className="w-3.5 h-3.5 text-slate-600" />
               </button>
             </div>
@@ -320,7 +340,7 @@ export const InspectionsPage: React.FC<InspectionsPageProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium">
-              {filteredInspections.map((row) => {
+              {pageRows.map((row) => {
                 const isSelected = selectedIds.includes(row.id);
 
                 return (

@@ -4,6 +4,8 @@ import { Endpoints } from './endpoints';
 export interface Inspection {
   id: string;
   commodity_id: string;
+  brand_name?: string | null;
+  commodity_name?: string | null;
   status: string;
   compliance_result: string | null;
   final_decision: string | null;
@@ -14,6 +16,8 @@ export interface Commodity {
   id: string;
   generic_name: string;
   category: string;
+  brand_id?: string;
+  brand_name?: string | null;
   barcode?: string;
 }
 
@@ -48,6 +52,22 @@ export interface InspectionDetail extends Inspection {
   findings: Finding[];
 }
 
+export interface OfficerDashboard {
+  today_count: number;
+  my_pending_assignments: number;
+  my_completion_rate: number;
+  my_total_inspections: number;
+  recent_activity: {
+    id: string;
+    status: string;
+    compliance_result: string | null;
+    created_at: string;
+    commodity_id?: string | null;
+    brand_name?: string | null;
+    commodity_name?: string | null;
+  }[];
+}
+
 export const fetchInspections = async (): Promise<Inspection[]> =>
   (await apiClient.get(Endpoints.listInspections)).data;
 
@@ -59,8 +79,35 @@ export const fetchCommodities = async (): Promise<Commodity[]> => {
 export const fetchInspectionDetail = async (id: string): Promise<InspectionDetail> =>
   (await apiClient.get(Endpoints.inspectionDetail(id))).data;
 
-export const createInspection = async (commodity_id: string): Promise<Inspection> =>
-  (await apiClient.post(Endpoints.createInspection, { commodity_id })).data;
+export const createInspection = async (
+  commodity_id: string, assignment_id?: string,
+): Promise<Inspection> =>
+  (await apiClient.post(
+    Endpoints.createInspection,
+    assignment_id ? { commodity_id, assignment_id } : { commodity_id },
+  )).data;
+
+export const submitInspection = async (inspectionId: string): Promise<Inspection> =>
+  (await apiClient.post(Endpoints.submit(inspectionId))).data;
+
+export interface Assignment {
+  id: string;
+  commodity_id: string;
+  commodity_name: string;
+  commodity_barcode?: string | null;
+  status: string;
+  due_date?: string | null;
+  notes?: string | null;
+}
+
+export const fetchMyChecklist = async (): Promise<Assignment[]> => {
+  const { data } = await apiClient.get(Endpoints.myChecklist);
+  const items = Array.isArray(data) ? data : data.items ?? data.assignments ?? [];
+  return items.filter((a: Assignment) => a.status === 'ASSIGNED');
+};
+
+export const fetchCommodity = async (id: string): Promise<Commodity> =>
+  (await apiClient.get(Endpoints.commodityDetail(id))).data;
 
 export const uploadEvidence = async (
   inspectionId: string, uri: string, viewType = 'FRONT_PDP',
@@ -94,3 +141,6 @@ export const evaluateInspection = async (inspectionId: string) =>
 
 export const fetchReport = async (inspectionId: string): Promise<{ file_url: string }> =>
   (await apiClient.get(Endpoints.report(inspectionId))).data;
+
+export const fetchOfficerDashboard = async (): Promise<OfficerDashboard> =>
+  (await apiClient.get(Endpoints.officerDashboard)).data;

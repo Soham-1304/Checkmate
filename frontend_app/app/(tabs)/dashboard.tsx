@@ -1,23 +1,44 @@
-import React from 'react';
-import { View, Text, ScrollView, StyleSheet, Pressable, SafeAreaView } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Text, ScrollView, StyleSheet, Pressable, SafeAreaView, ActivityIndicator, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Colors, Typography, Spacing, Radius } from '../../src/theme';
-import { useStatsStore } from '../../src/store/statsStore';
+import { Colors, Typography, Spacing } from '../../src/theme';
+import { fetchOfficerDashboard, OfficerDashboard } from '../../src/api/doca';
 import { InspectionTrendChart } from '../../src/components/InspectionTrendChart';
 import { InspectionActivityTimeline } from '../../src/components/InspectionActivityTimeline';
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const stats = useStatsStore();
+  const [dashboard, setDashboard] = useState<OfficerDashboard | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const total = stats.checked + stats.inProgress;
-  const compliantPercent = total > 0 ? Math.round((stats.compliant / total) * 100) : 0;
-  const nonCompliantPercent = total > 0 ? Math.round((stats.issues / total) * 100) : 0;
-  const reviewPercent = total > 0 ? Math.round((stats.inProgress / total) * 100) : 0;
-  const notApplicablePercent = 0; // Not applicable is always 0 in this simplified app
+  const load = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true); else setLoading(true);
+    try {
+      const data = await fetchOfficerDashboard();
+      setDashboard(data);
+    } catch {
+      // silently fail — UI shows zeros
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
 
-  // Only show the colored donut if there's actual data
+  useEffect(() => { load(); }, [load]);
+
+  const activity = dashboard?.recent_activity ?? [];
+  const pass = activity.filter(a => a.compliance_result === 'PASS').length;
+  const fail = activity.filter(a => a.compliance_result === 'FAIL').length;
+  const review = activity.filter(a => a.compliance_result === 'REVIEW').length;
+  const total = dashboard?.my_total_inspections ?? 0;
+
+  const judged = pass + fail + review || 1;
+  const compliantPercent = Math.round((pass / judged) * 100);
+  const nonCompliantPercent = Math.round((fail / judged) * 100);
+  const reviewPercent = Math.round((review / judged) * 100);
+
   const showColors = total > 0;
 
   return (
@@ -30,62 +51,84 @@ export default function DashboardScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.distributionCard}>
-          <Text style={[Typography.titleSmall, { fontWeight: '600', marginBottom: 16 }]}>Compliance Distribution</Text>
-          <View style={styles.distributionRow}>
-            {/* Circular Chart */}
-            <View style={styles.distributionChart}>
-               {/* If total is 0, show an empty grey ring. Otherwise, show colored segments */}
-               {!showColors && (
-                 <View style={[styles.donutSegment, { borderColor: '#E0E0E0' }]} />
-               )}
-               
-               {showColors && (
-                 <>
-                   <View style={[styles.donutSegment, { borderColor: Colors.primary, transform: [{ rotate: '-45deg' }] }]} />
-                   <View style={[styles.donutSegment, { borderColor: '#E6771A', borderTopColor: 'transparent', borderRightColor: 'transparent', transform: [{ rotate: '45deg' }] }]} />
-                   <View style={[styles.donutSegment, { borderColor: '#FDB617', borderTopColor: 'transparent', borderRightColor: 'transparent', borderBottomColor: 'transparent', transform: [{ rotate: '135deg' }] }]} />
-                 </>
-               )}
-               
-               <View style={styles.donutInnerCenter}>
-                 <Text style={[Typography.headlineMedium, { fontWeight: '700' }]}>{total}</Text>
-                 <Text style={[Typography.labelSmall, { color: Colors.textSecondary }]}>Total</Text>
-               </View>
-            </View>
-            
-            {/* Legends */}
-            <View style={styles.distributionLegends}>
-              <View style={styles.legendRow}>
-                <View style={[styles.legendDot, { backgroundColor: Colors.primary }]} />
-                <Text style={styles.legendText}>Compliant</Text>
-                <Text style={styles.legendValue}>{stats.compliant} <Text style={styles.legendPercent}>({compliantPercent}%)</Text></Text>
-              </View>
-              <View style={styles.legendRow}>
-                <View style={[styles.legendDot, { backgroundColor: '#E65100' }]} />
-                <Text style={styles.legendText}>Non-Compliant</Text>
-                <Text style={styles.legendValue}>{stats.issues} <Text style={styles.legendPercent}>({nonCompliantPercent}%)</Text></Text>
-              </View>
-              <View style={styles.legendRow}>
-                <View style={[styles.legendDot, { backgroundColor: '#FDB617' }]} />
-                <Text style={styles.legendText}>Needs Review</Text>
-                <Text style={styles.legendValue}>{stats.inProgress} <Text style={styles.legendPercent}>({reviewPercent}%)</Text></Text>
-              </View>
-              <View style={styles.legendRow}>
-                <View style={[styles.legendDot, { backgroundColor: '#E0E0E0' }]} />
-                <Text style={styles.legendText}>Not Applicable</Text>
-                <Text style={styles.legendValue}>0 <Text style={styles.legendPercent}>(0%)</Text></Text>
-              </View>
-            </View>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={Colors.primary} />}
+      >
+        {loading ? (
+          <View style={{ paddingVertical: 60, alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+            <Text style={[Typography.bodyMedium, { color: Colors.textSecondary, marginTop: 12 }]}>Loading your dashboard…</Text>
           </View>
-        </View>
+        ) : (
+          <>
+            <View style={styles.distributionCard}>
+              <Text style={[Typography.titleSmall, { fontWeight: '600', marginBottom: 4 }]}>Compliance Distribution</Text>
+              <Text style={[Typography.labelSmall, { color: Colors.textTertiary, marginBottom: 16 }]}>
+                Based on your {total} total inspection{total !== 1 ? 's' : ''}
+              </Text>
+              <View style={styles.distributionRow}>
+                <View style={styles.distributionChart}>
+                  {!showColors && (
+                    <View style={[styles.donutSegment, { borderColor: '#E0E0E0' }]} />
+                  )}
+                  {showColors && (
+                    <>
+                      <View style={[styles.donutSegment, { borderColor: Colors.primary, transform: [{ rotate: '-45deg' }] }]} />
+                      <View style={[styles.donutSegment, { borderColor: '#E6771A', borderTopColor: 'transparent', borderRightColor: 'transparent', transform: [{ rotate: '45deg' }] }]} />
+                      <View style={[styles.donutSegment, { borderColor: '#FDB617', borderTopColor: 'transparent', borderRightColor: 'transparent', borderBottomColor: 'transparent', transform: [{ rotate: '135deg' }] }]} />
+                    </>
+                  )}
+                  <View style={styles.donutInnerCenter}>
+                    <Text style={[Typography.headlineMedium, { fontWeight: '700' }]}>{total}</Text>
+                    <Text style={[Typography.labelSmall, { color: Colors.textSecondary }]}>Total</Text>
+                  </View>
+                </View>
 
-        {/* Real-time Inspection Trend Line Chart */}
-        <InspectionTrendChart currentTotal={total} />
-        
-        {/* Horizontal Inspection Activity Timeline */}
-        <InspectionActivityTimeline />
+                <View style={styles.distributionLegends}>
+                  <View style={styles.legendRow}>
+                    <View style={[styles.legendDot, { backgroundColor: Colors.primary }]} />
+                    <Text style={styles.legendText}>Compliant</Text>
+                    <Text style={styles.legendValue}>{pass} <Text style={styles.legendPercent}>({compliantPercent}%)</Text></Text>
+                  </View>
+                  <View style={styles.legendRow}>
+                    <View style={[styles.legendDot, { backgroundColor: '#E65100' }]} />
+                    <Text style={styles.legendText}>Non-Compliant</Text>
+                    <Text style={styles.legendValue}>{fail} <Text style={styles.legendPercent}>({nonCompliantPercent}%)</Text></Text>
+                  </View>
+                  <View style={styles.legendRow}>
+                    <View style={[styles.legendDot, { backgroundColor: '#FDB617' }]} />
+                    <Text style={styles.legendText}>Needs Review</Text>
+                    <Text style={styles.legendValue}>{review} <Text style={styles.legendPercent}>({reviewPercent}%)</Text></Text>
+                  </View>
+                  <View style={styles.legendRow}>
+                    <View style={[styles.legendDot, { backgroundColor: '#E0E0E0' }]} />
+                    <Text style={styles.legendText}>Not Applicable</Text>
+                    <Text style={styles.legendValue}>0 <Text style={styles.legendPercent}>(0%)</Text></Text>
+                  </View>
+                </View>
+              </View>
+
+              {dashboard && (
+                <View style={styles.completionRow}>
+                  <Text style={[Typography.labelSmall, { color: Colors.textSecondary, flex: 1 }]}>
+                    Completion rate
+                  </Text>
+                  <Text style={[Typography.labelSmall, { fontWeight: '700', color: Colors.primary }]}>
+                    {Math.round(dashboard.my_completion_rate * 100)}%
+                  </Text>
+                  <View style={styles.completionBarBg}>
+                    <View style={[styles.completionBarFill, { width: `${Math.round(dashboard.my_completion_rate * 100)}%` as any }]} />
+                  </View>
+                </View>
+              )}
+            </View>
+
+            <InspectionTrendChart currentTotal={total} />
+            <InspectionActivityTimeline />
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -171,5 +214,25 @@ const styles = StyleSheet.create({
   legendPercent: {
     color: '#999',
     fontWeight: '400',
-  }
+  },
+  completionRow: {
+    marginTop: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  completionBarBg: {
+    width: '100%',
+    height: 6,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginTop: 4,
+  },
+  completionBarFill: {
+    height: 6,
+    backgroundColor: Colors.primary,
+    borderRadius: 3,
+  },
 });

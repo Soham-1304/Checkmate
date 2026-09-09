@@ -2,6 +2,7 @@ import React from 'react';
 import { Sparkles, Info, ArrowRight } from 'lucide-react';
 import { AIAnalysisItem } from '../types';
 import { AI_ANALYSIS_ITEMS } from '../data/mockData';
+import { useLiveAIDecisions } from '../api/useLiveData';
 import { ProductMockup } from './ProductMockup';
 
 interface AIDecisionCarouselProps {
@@ -9,12 +10,7 @@ interface AIDecisionCarouselProps {
 }
 
 export const AIDecisionCarousel: React.FC<AIDecisionCarouselProps> = ({ onReviewItem }) => {
-  const getMockupType = (code: string): 'amul' | 'fortune' | 'tata' | 'haldirams' => {
-    if (code === 'INS-2847') return 'amul';
-    if (code === 'INS-2841') return 'fortune';
-    if (code === 'INS-2839') return 'tata';
-    return 'haldirams';
-  };
+  const { data: liveAIItems } = useLiveAIDecisions(AI_ANALYSIS_ITEMS);
 
   return (
     <div className="bg-white rounded-3xl p-6 border border-slate-200/70 shadow-xs space-y-4">
@@ -40,7 +36,9 @@ export const AIDecisionCarousel: React.FC<AIDecisionCarouselProps> = ({ onReview
 
       {/* Grid of 4 AI Analysis Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 pt-1">
-        {AI_ANALYSIS_ITEMS.map((item) => {
+        {liveAIItems.map((item) => {
+          const mockupType = (['amul', 'britannia', 'mdh', 'parleg', 'maggi', 'fortune', 'haldirams', 'tatatea'] as const)
+            .find((t) => item.productName.toLowerCase().replace(/[^a-z]/g, '').includes(t.replace('parleg', 'parle').replace('tatatea', 'tata'))) ?? 'haldirams';
           const isNonCompliant = item.status === 'Non-Compliant';
           const isCompliant = item.status === 'Compliant';
           const isReviewNeeded = item.status === 'Review Needed';
@@ -67,7 +65,7 @@ export const AIDecisionCarousel: React.FC<AIDecisionCarouselProps> = ({ onReview
               {/* Product Info with Realistic SVG Mockup */}
               <div className="flex items-start gap-3 mb-3">
                 <div className="w-12 h-14 rounded-lg bg-white border border-slate-100 flex items-center justify-center p-1 overflow-hidden shrink-0 shadow-2xs">
-                  <ProductMockup type={getMockupType(item.code)} />
+                  <ProductMockup type={mockupType} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="text-xs font-bold text-slate-800 line-clamp-1 group-hover:text-[#017374] transition-colors">

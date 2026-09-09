@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import case, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from app.deps import get_current_user, get_db, require_capability
 from app.models.compliance import Finding
 from app.models.evidence import Declaration
@@ -103,7 +104,11 @@ async def get_officer_dashboard(
 
     recent = (
         await db.execute(
-            select(Inspection).where(Inspection.officer_id == current_user.id).order_by(desc(Inspection.created_at)).limit(5)
+            select(Inspection)
+            .options(selectinload(Inspection.commodity).selectinload(Commodity.brand))
+            .where(Inspection.officer_id == current_user.id)
+            .order_by(desc(Inspection.created_at))
+            .limit(10)
         )
     ).scalars().all()
 
@@ -113,7 +118,15 @@ async def get_officer_dashboard(
         "my_completion_rate": round(done_mine / total_mine, 3) if total_mine else 0.0,
         "my_total_inspections": total_mine,
         "recent_activity": [
-            {"id": i.id, "status": i.status, "compliance_result": i.compliance_result, "created_at": i.created_at}
+            {
+                "id": str(i.id),
+                "status": i.status,
+                "compliance_result": i.compliance_result,
+                "created_at": i.created_at,
+                "commodity_id": str(i.commodity_id) if i.commodity_id else None,
+                "brand_name": i.commodity.brand.name if i.commodity and i.commodity.brand else None,
+                "commodity_name": i.commodity.generic_name if i.commodity else None,
+            }
             for i in recent
         ],
     }

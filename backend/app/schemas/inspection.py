@@ -99,6 +99,8 @@ class InspectionOut(BaseModel):
     created_at: datetime
     submitted_at: Optional[datetime] = None
     finalized_at: Optional[datetime] = None
+    brand_name: Optional[str] = None
+    commodity_name: Optional[str] = None
 
 
 class InspectionDetailOut(InspectionOut):

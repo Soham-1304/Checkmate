@@ -3,18 +3,27 @@ import { View, Text, ScrollView, StyleSheet, Pressable, SafeAreaView, ActivityIn
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, Radius } from '../../src/theme';
-import { fetchInspectionDetail, fetchReport, InspectionDetail } from '../../src/api/doca';
+import { fetchInspectionDetail, fetchReport, fetchCommodities, InspectionDetail, Commodity } from '../../src/api/doca';
 
 export default function InspectionResultScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [detail, setDetail] = useState<InspectionDetail | null>(null);
+  const [commodity, setCommodity] = useState<Commodity | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       try {
-        setDetail(await fetchInspectionDetail(String(id)));
+        const [d, allCommodities] = await Promise.all([
+          fetchInspectionDetail(String(id)),
+          fetchCommodities().catch(() => [] as Commodity[]),
+        ]);
+        setDetail(d);
+        if (d?.commodity_id) {
+          const match = allCommodities.find((c) => c.id === d.commodity_id);
+          if (match) setCommodity(match);
+        }
       } catch {
         Alert.alert('Load failed', 'Could not fetch inspection from server.');
       } finally {
@@ -26,8 +35,11 @@ export default function InspectionResultScreen() {
   const openReport = async () => {
     try {
       const r = await fetchReport(String(id));
-      if (r.file_url) await Linking.openURL(r.file_url);
-      else Alert.alert('No report', 'Evaluate the inspection first to generate the PDF.');
+      if (r?.file_url) {
+        await Linking.openURL(r.file_url);
+      } else {
+        Alert.alert('No report', 'Evaluate the inspection first to generate the PDF.');
+      }
     } catch {
       Alert.alert('No report', 'Evaluate the inspection first to generate the PDF.');
     }
@@ -36,12 +48,18 @@ export default function InspectionResultScreen() {
   if (loading || !detail) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <View style={[styles.header, { justifyContent: 'center' }]}>
+        <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={[Typography.bodyMedium, { color: Colors.textSecondary, marginTop: 16 }]}>
+            Loading inspection details...
+          </Text>
         </View>
       </SafeAreaView>
     );
   }
+
+  const brandName = detail.brand_name || commodity?.brand_name || '';
+  const commodityName = detail.commodity_name || commodity?.generic_name || 'Standard Packaged Commodity';
 
   const verdict = detail.compliance_result ?? 'PENDING';
   const fails = detail.findings.filter((f) => f.title.startsWith('Non-Compliance')).length;
@@ -58,21 +76,45 @@ export default function InspectionResultScreen() {
         <Pressable style={styles.headerIcon} onPress={() => router.back()}>
           <MaterialIcons name="arrow-back" size={24} color={Colors.textPrimary} />
         </Pressable>
-        <Text style={[Typography.titleMedium, { fontWeight: '600' }]}>Inspection Result</Text>
-        <View style={{ width: 40 }} /> {/* Spacer */}
+        <View style={styles.headerTitleContainer}>
+          <Text style={[Typography.titleMedium, { fontWeight: '700' }]} numberOfLines={1}>
+            {brandName ? String(brandName) : 'Inspection Result'}
+          </Text>
+          <Text style={[Typography.labelSmall, { color: Colors.textSecondary }]} numberOfLines={1}>
+            {String(commodityName)}
+          </Text>
+        </View>
+        <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        
-        {/* Main Card */}
+        {/* Commodity Identity Card */}
+        <View style={styles.productBanner}>
+          <View style={styles.productBadge}>
+            <MaterialIcons name="local-offer" size={18} color={Colors.primary} />
+            <Text style={styles.productBrandText}>
+              {brandName ? String(brandName) : 'Packaged Goods'}
+            </Text>
+          </View>
+          <Text style={[Typography.headlineSmall, styles.productNameText]}>
+            {String(commodityName)}
+          </Text>
+          <Text style={[Typography.labelSmall, styles.productMetaText]}>
+            {`Inspection ID: ${String(id).slice(0, 8)} • Status: ${detail.status.replace('_', ' ')}`}
+          </Text>
+        </View>
+
+        {/* Main Result Card */}
         <View style={styles.resultCard}>
-          {/* Circular Chart Representation */}
           <View style={styles.chartContainer}>
             <View style={styles.circleOuter}>
-              {/* This is a simple representation. For a real ring chart, react-native-svg is typically used */}
               <View style={styles.circleInner}>
-                <Text style={[Typography.displayLarge, { color: verdictColor, fontWeight: '700' }]}>{score}%</Text>
-                <Text style={[Typography.labelLarge, { color: verdictColor }]}>{verdictLabel}</Text>
+                <Text style={[Typography.displayLarge, { color: verdictColor, fontWeight: '700' }]}>
+                  {`${score}%`}
+                </Text>
+                <Text style={[Typography.labelLarge, { color: verdictColor, fontWeight: '600' }]}>
+                  {String(verdictLabel)}
+                </Text>
               </View>
             </View>
           </View>
@@ -87,74 +129,91 @@ export default function InspectionResultScreen() {
 
           {/* Stats List */}
           <View style={styles.statsList}>
-            {/* Row 1 */}
             <View style={styles.statRow}>
               <View style={[styles.iconBox, { backgroundColor: Colors.primary }]}>
                 <MaterialIcons name="check" size={20} color={Colors.textInverse} />
               </View>
               <View style={styles.statTextContainer}>
-                <Text style={[Typography.titleMedium, { color: Colors.textPrimary }]}>{passed}</Text>
+                <Text style={[Typography.titleMedium, { color: Colors.textPrimary }]}>
+                  {String(passed)}
+                </Text>
                 <Text style={[Typography.labelSmall, { color: Colors.textSecondary }]}>Requirements Passed</Text>
               </View>
             </View>
             <View style={styles.divider} />
 
-            {/* Row 2 */}
             <View style={styles.statRow}>
               <View style={[styles.iconBox, { backgroundColor: '#E65100' }]}>
                 <MaterialIcons name="warning-amber" size={20} color={Colors.textInverse} />
               </View>
               <View style={styles.statTextContainer}>
-                <Text style={[Typography.titleMedium, { color: '#E65100' }]}>{fails}</Text>
+                <Text style={[Typography.titleMedium, { color: '#E65100' }]}>
+                  {String(fails)}
+                </Text>
                 <Text style={[Typography.labelSmall, { color: Colors.textSecondary }]}>Violations Found</Text>
               </View>
             </View>
             <View style={styles.divider} />
 
-            {/* Row 3 */}
             <View style={styles.statRow}>
               <View style={[styles.iconBox, { backgroundColor: '#FFB300' }]}>
                 <MaterialIcons name="schedule" size={20} color={Colors.textInverse} />
               </View>
               <View style={styles.statTextContainer}>
-                <Text style={[Typography.titleMedium, { color: Colors.textPrimary }]}>{reviews}</Text>
+                <Text style={[Typography.titleMedium, { color: Colors.textPrimary }]}>
+                  {String(reviews)}
+                </Text>
                 <Text style={[Typography.labelSmall, { color: Colors.textSecondary }]}>Needs Officer Review</Text>
               </View>
             </View>
             <View style={styles.divider} />
 
-            {/* Row 4 */}
             <View style={styles.statRow}>
               <View style={[styles.iconBox, { backgroundColor: '#E0E0E0' }]}>
                 <MaterialIcons name="remove" size={20} color={Colors.textSecondary} />
               </View>
               <View style={styles.statTextContainer}>
-                <Text style={[Typography.titleMedium, { color: Colors.textPrimary }]}>{detail.declarations.length}</Text>
+                <Text style={[Typography.titleMedium, { color: Colors.textPrimary }]}>
+                  {String(detail.declarations?.length ?? 0)}
+                </Text>
                 <Text style={[Typography.labelSmall, { color: Colors.textSecondary }]}>Declarations Extracted</Text>
               </View>
             </View>
           </View>
         </View>
 
-        {/* Findings */}
-        {detail.findings.map((f) => (
-          <View key={f.id} style={styles.resultCard}>
-            <Text style={[Typography.titleMedium, { fontWeight: '600' }]}>{f.title}</Text>
-            <Text style={[Typography.bodyMedium, { color: Colors.textSecondary, marginTop: 4 }]}>{f.explanation}</Text>
-            <Text style={[Typography.labelSmall, { color: Colors.primary, marginTop: 8 }]}>{f.legal_reference}</Text>
+        {/* Findings Section */}
+        {detail.findings && detail.findings.length > 0 ? (
+          <View style={{ marginBottom: Spacing.lg }}>
+            <Text style={[Typography.titleMedium, { fontWeight: '700', marginBottom: Spacing.sm }]}>
+              Identified Findings
+            </Text>
+            {detail.findings.map((f) => (
+              <View key={f.id} style={styles.findingCard}>
+                <Text style={[Typography.titleMedium, { fontWeight: '600' }]}>{String(f.title)}</Text>
+                <Text style={[Typography.bodyMedium, { color: Colors.textSecondary, marginTop: 4 }]}>
+                  {String(f.explanation)}
+                </Text>
+                {f.legal_reference ? (
+                  <Text style={[Typography.labelSmall, { color: Colors.primary, marginTop: 8 }]}>
+                    {String(f.legal_reference)}
+                  </Text>
+                ) : null}
+              </View>
+            ))}
           </View>
-        ))}
+        ) : null}
 
         {/* Action Buttons */}
         <Pressable style={styles.primaryButton} onPress={openReport}>
+          <MaterialIcons name="picture-as-pdf" size={20} color={Colors.textInverse} style={{ marginRight: 8 }} />
           <Text style={[Typography.button, { color: Colors.textInverse }]}>View Full Report</Text>
         </Pressable>
 
-        <Pressable style={styles.secondaryButton}>
-          <MaterialIcons name="share" size={20} color={Colors.primary} />
-          <Text style={[Typography.button, { color: Colors.primary, marginLeft: 8 }]}>Share Report</Text>
+        <Pressable style={styles.secondaryButton} onPress={() => router.push('/(tabs)/inspections' as any)}>
+          <MaterialIcons name="list" size={20} color={Colors.primary} style={{ marginRight: 8 }} />
+          <Text style={[Typography.button, { color: Colors.primary }]}>Back to Inspections</Text>
         </Pressable>
-
       </ScrollView>
     </SafeAreaView>
   );
@@ -162,18 +221,63 @@ export default function InspectionResultScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#F8F9FA' },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.md,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderLight,
   },
   headerIcon: {
     padding: 8,
   },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 8,
+  },
+  headerSpacer: {
+    width: 40,
+  },
   container: { flex: 1 },
-  content: { paddingHorizontal: Spacing.screenHorizontal, paddingBottom: 40, paddingTop: 12 },
+  content: { paddingHorizontal: Spacing.screenHorizontal, paddingBottom: 40, paddingTop: 16 },
+  productBanner: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+  },
+  productBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  productBrandText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  productNameText: {
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  productMetaText: {
+    color: Colors.textSecondary,
+    marginTop: 6,
+  },
   resultCard: {
     backgroundColor: Colors.surface,
     borderRadius: 24,
@@ -196,7 +300,7 @@ const styles = StyleSheet.create({
     borderRadius: 100,
     borderWidth: 8,
     borderColor: Colors.primary,
-    borderRightColor: '#E65100', // Mocking the colored segments
+    borderRightColor: '#E65100',
     borderBottomColor: '#A7FFEB',
     justifyContent: 'center',
     alignItems: 'center',
@@ -238,6 +342,14 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: Colors.borderLight,
     marginVertical: 4,
+  },
+  findingCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
   },
   primaryButton: {
     backgroundColor: Colors.primary,

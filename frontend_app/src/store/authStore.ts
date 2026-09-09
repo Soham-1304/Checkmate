@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { UserModel } from '../models/types';
-import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from '../api/client';
 import { Endpoints } from '../api/endpoints';
 
@@ -22,9 +22,9 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ isLoading: true });
     try {
       const { data } = await apiClient.post(Endpoints.loginJson, { email, password });
-      await SecureStore.setItemAsync('access_token', data.access_token);
+      await AsyncStorage.setItem('access_token', data.access_token);
       if (data.refresh_token) {
-        await SecureStore.setItemAsync('refresh_token', data.refresh_token);
+        await AsyncStorage.setItem('refresh_token', data.refresh_token);
       }
       const me = await apiClient.get(Endpoints.me);
       const user: UserModel = {
@@ -44,13 +44,13 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       await apiClient.post(Endpoints.logout);
     } catch {}
-    await SecureStore.deleteItemAsync('access_token');
-    await SecureStore.deleteItemAsync('refresh_token');
+    await AsyncStorage.removeItem('access_token');
+    await AsyncStorage.removeItem('refresh_token');
     set({ user: null, isAuthenticated: false });
   },
 
   checkAuth: async () => {
-    const token = await SecureStore.getItemAsync('access_token');
+    const token = await AsyncStorage.getItem('access_token');
     if (!token) return false;
     try {
       const me = await apiClient.get(Endpoints.me);
@@ -65,7 +65,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       });
       return true;
     } catch {
-      await SecureStore.deleteItemAsync('access_token');
+      await AsyncStorage.removeItem('access_token');
       return false;
     }
   },

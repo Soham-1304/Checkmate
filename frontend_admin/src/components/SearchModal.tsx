@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, X, Building2, Package, ShieldCheck, ArrowRight } from 'lucide-react';
 import { RECENT_INSPECTIONS, HIGH_RISK_COMPANIES } from '../data/mockData';
+import { useLiveRecent, useLiveHighRisk } from '../api/useLiveData';
 
 interface SearchModalProps {
   isOpen: boolean;
@@ -31,14 +32,17 @@ export const SearchModal: React.FC<SearchModalProps> = ({
 
   if (!isOpen) return null;
 
-  const filteredInspections = RECENT_INSPECTIONS.filter(
+  const { data: recentInspections } = useLiveRecent(RECENT_INSPECTIONS);
+  const { data: riskCompanies } = useLiveHighRisk(HIGH_RISK_COMPANIES);
+
+  const filteredInspections = recentInspections.filter(
     (i) =>
       i.product.toLowerCase().includes(query.toLowerCase()) ||
       i.company.toLowerCase().includes(query.toLowerCase()) ||
       i.id.toLowerCase().includes(query.toLowerCase())
   );
 
-  const filteredCompanies = HIGH_RISK_COMPANIES.filter((c) =>
+  const filteredCompanies = riskCompanies.filter((c) =>
     c.name.toLowerCase().includes(query.toLowerCase())
   );
 
@@ -140,7 +144,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
           <span>Press ESC to exit</span>
           <span className="flex items-center gap-1 font-semibold text-[#017374]">
             <ShieldCheck className="w-3.5 h-3.5 text-[#017374]" />
-            ComplyAI Search Engine
+            Checkmate Search Engine
           </span>
         </div>
       </div>

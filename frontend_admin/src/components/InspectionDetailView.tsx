@@ -11,8 +11,10 @@ import {
   MapPin,
   User,
   Sparkles,
+  FileText,
 } from 'lucide-react';
 import { InspectionDetailRow } from '../data/inspectionsData';
+import { api } from '../api/client';
 
 interface InspectionDetailViewProps {
   inspection: InspectionDetailRow | null;
@@ -31,6 +33,29 @@ export const InspectionDetailView: React.FC<InspectionDetailViewProps> = ({
 }) => {
   const [selectedImageIndex, setSelectedImageIndex] = useState(2);
   const [activePin, setActivePin] = useState<number | null>(null);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
+
+  const openReport = async () => {
+    if (!inspection) return;
+    setReportLoading(true);
+    setReportError(null);
+    try {
+      const report = await api<{ file_url?: string; url?: string }>(
+        `/inspections/${inspection.id}/report`,
+      );
+      const url = report?.file_url ?? report?.url;
+      if (url) {
+        window.open(url, '_blank', 'noopener');
+      } else {
+        setReportError('Report URL unavailable');
+      }
+    } catch {
+      setReportError('Could not load report');
+    } finally {
+      setReportLoading(false);
+    }
+  };
 
   // Default to LM-2024-0821 / Aaradhya Besan data if none passed or customized
   const inspectionCode = inspection ? inspection.id : 'LM-2024-0821';
@@ -62,6 +87,18 @@ export const InspectionDetailView: React.FC<InspectionDetailViewProps> = ({
               High Priority
             </span>
           </div>
+          <button
+            onClick={openReport}
+            disabled={reportLoading || !inspection}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#017374] text-white text-xs font-bold shadow-sm hover:bg-[#015c5d] disabled:opacity-50 transition-all"
+            title="Open the compliance PDF report (view + export)"
+          >
+            <FileText className="w-4 h-4" />
+            {reportLoading ? 'Preparing…' : 'View / Export Report'}
+          </button>
+          {reportError && (
+            <span className="text-[11px] text-rose-600 font-semibold">{reportError}</span>
+          )}
         </div>
       </div>
 

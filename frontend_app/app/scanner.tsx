@@ -1,21 +1,24 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, Pressable, SafeAreaView, Modal, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, Pressable, SafeAreaView, Modal, TouchableOpacity, ActivityIndicator, Alert, ScrollView } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Colors, Typography, Spacing, Radius } from '../src/theme';
-import { fetchCommodities, createInspection, uploadEvidence, analyzeAuto, evaluateInspection, Commodity } from '../src/api/doca';
+import { Colors, Typography, Spacing } from '../src/theme';
+import { fetchMyChecklist, fetchCommodity, Assignment } from '../src/api/doca';
+import { useInspectStore } from '../src/store/inspectStore';
 
 export default function ScannerScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [flash, setFlash] = useState<boolean>(false);
   const cameraRef = useRef<CameraView>(null);
 
-  const [photoUri, setPhotoUri] = useState<string | null>(null);
-  const [commodities, setCommodities] = useState<Commodity[]>([]);
-  const [pickerVisible, setPickerVisible] = useState(false);
-  const [busy, setBusy] = useState<string | null>(null);
+  const [sheetVisible, setSheetVisible] = useState(false);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [brands, setBrands] = useState<Record<string, string>>({});
+  const [loadingList, setLoadingList] = useState(false);
 
+  const { photos, addPhotos, setAssignment } = useInspectStore();
   const router = useRouter();
 
   if (!permission) {
@@ -33,48 +36,75 @@ export default function ScannerScreen() {
     );
   }
 
+  const openAssignedSheet = async () => {
+    setSheetVisible(true);
+    setLoadingList(true);
+    try {
+      const list = await fetchMyChecklist();
+      setAssignments(list);
+      const entries = await Promise.all(
+        list.map(async (a) => {
+          try {
+            const c = await fetchCommodity(a.commodity_id);
+            return [a.commodity_id, c.brand_name || ''] as const;
+          } catch {
+            return [a.commodity_id, ''] as const;
+          }
+        }),
+      );
+      setBrands(Object.fromEntries(entries));
+      if (!list.length) {
+        Alert.alert('No assignments', 'You have no pending assigned commodities.');
+      }
+    } catch {
+      Alert.alert('Load failed', 'Could not fetch your assigned commodities. Check connection.');
+    } finally {
+      setLoadingList(false);
+    }
+  };
+
   const handleCapture = async () => {
     try {
       const photo = await cameraRef.current?.takePictureAsync({ quality: 0.7 });
       if (!photo?.uri) return;
-      setPhotoUri(photo.uri);
-      const list = await fetchCommodities();
-      setCommodities(list);
-      setPickerVisible(true);
+      addPhotos([photo.uri]);
+      await openAssignedSheet();
     } catch {
       Alert.alert('Capture failed', 'Could not read the camera image.');
     }
   };
 
-  const handleCommodity = async (commodity: Commodity) => {
-    if (!photoUri) return;
-    setPickerVisible(false);
-    setBusy('Creating inspection…');
+  const handleGallery = async () => {
     try {
-      const inspection = await createInspection(commodity.id);
-      setBusy('Uploading evidence…');
-      await uploadEvidence(inspection.id, photoUri, 'BACK_PANEL');
-      setBusy('Running AI analysis…');
-      await analyzeAuto(inspection.id);
-      setBusy('Evaluating compliance…');
-      await evaluateInspection(inspection.id);
-      router.replace(`/analysis/${inspection.id}` as any);
+      const result = await ImagePicker.launchImageLibraryAsync({
+        allowsMultipleSelection: true,
+        quality: 0.7,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      });
+      if (result.canceled) return;
+      const uris = result.assets.map((a) => a.uri).filter(Boolean);
+      if (!uris.length) return;
+      addPhotos(uris);
+      await openAssignedSheet();
     } catch {
-      Alert.alert('Analysis failed', 'Upload or AI analysis failed. Try again.');
-    } finally {
-      setBusy(null);
+      Alert.alert('Gallery failed', 'Could not load selected images.');
     }
+  };
+
+  const handleAssignment = (a: Assignment) => {
+    setAssignment(a, brands[a.commodity_id] || null);
+    setSheetVisible(false);
+    router.push('/inspect-confirm' as any);
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <CameraView 
-        style={styles.camera} 
+      <CameraView
+        style={styles.camera}
         facing="back"
         enableTorch={flash}
         ref={cameraRef}
       >
-        {/* Header */}
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} style={styles.iconButton}>
             <MaterialIcons name="arrow-back" size={28} color={Colors.textInverse} />
@@ -85,26 +115,27 @@ export default function ScannerScreen() {
           </Pressable>
         </View>
 
-        {/* Scanner Reticle / Frame */}
         <View style={styles.reticleContainer}>
           <View style={styles.reticleBox}>
-            {/* Top Left */}
             <View style={[styles.corner, styles.topLeft]} />
-            {/* Top Right */}
             <View style={[styles.corner, styles.topRight]} />
-            {/* Bottom Left */}
             <View style={[styles.corner, styles.bottomLeft]} />
-            {/* Bottom Right */}
             <View style={[styles.corner, styles.bottomRight]} />
           </View>
         </View>
 
-        {/* Bottom Controls */}
+        {photos.length > 0 && (
+          <View style={styles.photoBadge}>
+            <MaterialIcons name="photo-library" size={16} color="white" />
+            <Text style={styles.photoBadgeText}>{photos.length} photo{photos.length > 1 ? 's' : ''}</Text>
+          </View>
+        )}
+
         <View style={styles.bottomControls}>
-          <Pressable style={styles.iconButton}>
+          <Pressable style={styles.iconButton} onPress={handleGallery}>
             <MaterialIcons name="photo-library" size={32} color={Colors.textInverse} />
           </Pressable>
-          
+
           <View style={styles.captureContainer}>
             <Pressable style={styles.captureButtonOuter} onPress={handleCapture}>
               <View style={styles.captureButtonInner} />
@@ -118,36 +149,40 @@ export default function ScannerScreen() {
         </View>
       </CameraView>
 
-      {/* Busy overlay (create → upload → analyze) */}
-      {busy && (
-        <View style={styles.busyOverlay}>
-          <View style={styles.busyCard}>
-            <ActivityIndicator size="large" color={Colors.primary} />
-            <Text style={[Typography.bodyMedium, { color: Colors.textPrimary, marginTop: Spacing.md }]}>{busy}</Text>
-          </View>
-        </View>
-      )}
-
-      {/* Commodity picker */}
-      <Modal transparent visible={pickerVisible} animationType="slide">
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setPickerVisible(false)}>
+      <Modal transparent visible={sheetVisible} animationType="slide">
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setSheetVisible(false)}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={[Typography.titleMedium, { fontWeight: '700' }]}>Select Commodity</Text>
-              <Pressable onPress={() => setPickerVisible(false)}>
+              <View>
+                <Text style={[Typography.titleMedium, { fontWeight: '700' }]}>Your Assigned Items</Text>
+                <Text style={[Typography.labelSmall, { color: Colors.textSecondary }]}>
+                  Only commodities assigned to you
+                </Text>
+              </View>
+              <Pressable onPress={() => setSheetVisible(false)}>
                 <MaterialIcons name="close" size={24} color={Colors.textSecondary} />
               </Pressable>
             </View>
-            {commodities.map((c) => (
-              <Pressable key={c.id} style={styles.commodityOption} onPress={() => handleCommodity(c)}>
-                <MaterialIcons name="inventory-2" size={20} color={Colors.primary} />
-                <View style={{ marginLeft: Spacing.md, flex: 1 }}>
-                  <Text style={Typography.bodyMedium}>{c.generic_name}</Text>
-                  <Text style={[Typography.labelSmall, { color: Colors.textSecondary }]}>{c.category}</Text>
-                </View>
-                <MaterialIcons name="chevron-right" size={20} color={Colors.textSecondary} />
-              </Pressable>
-            ))}
+            {loadingList ? (
+              <ActivityIndicator size="large" color={Colors.primary} style={{ marginVertical: 24 }} />
+            ) : (
+              <ScrollView>
+                {assignments.map((a) => (
+                  <Pressable key={a.id} style={styles.assignmentOption} onPress={() => handleAssignment(a)}>
+                    <MaterialIcons name="assignment" size={22} color={Colors.primary} />
+                    <View style={{ marginLeft: Spacing.md, flex: 1 }}>
+                      <Text style={Typography.bodyMedium}>
+                        {brands[a.commodity_id] ? `${brands[a.commodity_id]} · ` : ''}{a.commodity_name}
+                      </Text>
+                      <Text style={[Typography.labelSmall, { color: Colors.textSecondary }]}>
+                        {a.commodity_barcode || 'No barcode'}{a.due_date ? `  ·  Due ${a.due_date}` : ''}
+                      </Text>
+                    </View>
+                    <MaterialIcons name="chevron-right" size={20} color={Colors.textSecondary} />
+                  </Pressable>
+                ))}
+              </ScrollView>
+            )}
           </View>
         </TouchableOpacity>
       </Modal>
@@ -230,6 +265,24 @@ const styles = StyleSheet.create({
     borderBottomWidth: 4,
     borderRightWidth: 4,
   },
+  photoBadge: {
+    position: 'absolute',
+    top: 110,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    zIndex: 10,
+  },
+  photoBadgeText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+  },
   bottomControls: {
     position: 'absolute',
     bottom: 0,
@@ -267,22 +320,6 @@ const styles = StyleSheet.create({
     color: 'white',
     textDecorationLine: 'underline',
   },
-  busyOverlay: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 20,
-  },
-  busyCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    paddingVertical: Spacing.xl,
-    paddingHorizontal: Spacing.xl * 2,
-    alignItems: 'center',
-    elevation: 6,
-  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -294,7 +331,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     padding: Spacing.lg,
     paddingBottom: Spacing.xl * 2,
-    maxHeight: '60%',
+    maxHeight: '65%',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -302,7 +339,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.md,
   },
-  commodityOption: {
+  assignmentOption: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: Spacing.md,

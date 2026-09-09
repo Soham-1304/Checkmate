@@ -19,6 +19,8 @@ import { SearchModal } from './components/SearchModal';
 import { AIAnalysisItem } from './types';
 import { InspectionDetailRow } from './data/inspectionsData';
 import { CompanyRegistryRow } from './data/companiesData';
+import { mapRepoRow, fetchRepoRows } from './api/useLiveData';
+import { ReviewDecisionValue } from './components/ReviewModal';
 import { CheckCircle, AlertTriangle } from 'lucide-react';
 
 export function App() {
@@ -38,9 +40,56 @@ export function App() {
     }, 4000);
   };
 
-  const handleReviewItem = (item: AIAnalysisItem) => {
+  const handleReviewItem = async (item: AIAnalysisItem) => {
     setReviewItem(item);
     setIsReviewOpen(true);
+    // Land the admin on the inspection record while the report modal opens
+    setCurrentTab('inspections');
+    try {
+      const rows = await fetchRepoRows();
+      const match = rows.find((r) => r.inspection_id === item.id);
+      if (match) setSelectedInspectionDetail(mapRepoRow(match));
+    } catch {
+      /* modal still works — detail view is best-effort */
+    }
+  };
+
+  const recordDecision = async (id: string, decision: ReviewDecisionValue, okMsg: string) => {
+    try {
+      const { api } = await import('./api/client');
+      await api(`/inspections/${id}/review`, {
+        method: 'POST',
+        body: JSON.stringify({ decision }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+      showToast(okMsg, 'success');
+      setSelectedInspectionDetail((prev) =>
+        prev && prev.id === id
+          ? {
+              ...prev,
+              status:
+                decision === 'APPROVED_COMPLIANT'
+                  ? 'Approved'
+                  : decision === 'RETURNED_FOR_REVIEW'
+                  ? 'Re-inspection'
+                  : 'Rejected',
+            }
+          : prev,
+      );
+    } catch {
+      showToast('Decision could not be recorded. Check your session and retry.', 'warning');
+      throw new Error('review failed');
+    }
+  };
+
+  const handleDecision = async (itemId: string, decision: ReviewDecisionValue) => {
+    if (decision === 'APPROVED_COMPLIANT') {
+      await recordDecision(itemId, decision, 'Approved as compliant. Clearance recorded in the registry.');
+    } else if (decision === 'APPROVED_NON_COMPLIANT') {
+      await recordDecision(itemId, decision, 'Recorded non-compliant. Violation notice issued to the manufacturer.');
+    } else {
+      await recordDecision(itemId, decision, 'Returned for re-inspection. Field officer notified.');
+    }
   };
 
   const handleOpenDetailView = (inspection: InspectionDetailRow) => {
@@ -48,26 +97,15 @@ export function App() {
   };
 
   const handleApproveInspection = (id: string) => {
-    showToast(`Inspection ${id} approved. Clearance record updated.`, 'success');
-    setSelectedInspectionDetail(null);
+    recordDecision(id, 'APPROVED_COMPLIANT', 'Approved as compliant. Clearance record updated.');
   };
 
   const handleReinspectionRequest = (id: string) => {
-    showToast(`Re-inspection request assigned to Field Officer for ${id}.`, 'warning');
-    setSelectedInspectionDetail(null);
+    recordDecision(id, 'RETURNED_FOR_REVIEW', 'Re-inspection request assigned to the field officer.');
   };
 
   const handleRejectInspection = (id: string) => {
-    showToast(`Notice of violation and rejection generated for ${id}.`, 'warning');
-    setSelectedInspectionDetail(null);
-  };
-
-  const handleDecision = (itemId: string, decision: 'approved' | 'flagged') => {
-    if (decision === 'approved') {
-      showToast('Inspection approved successfully. Official clearance certificate recorded in registry.', 'success');
-    } else {
-      showToast('Violation notice issued to manufacturer under Section 18 of Legal Metrology Act.', 'warning');
-    }
+    recordDecision(id, 'APPROVED_NON_COMPLIANT', 'Notice of violation recorded for this inspection.');
   };
 
   const handleNewInspectionSubmit = (data: any) => {
@@ -206,8 +244,15 @@ export function App() {
       <SearchModal
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
-        onSelectInspection={(id) => {
-          showToast(`Opened inspection details for ${id}`, 'success');
+        onSelectInspection={async (id) => {
+          const rows = await fetchRepoRows();
+          const match = rows.find((r) => r.inspection_id === id);
+          if (match) {
+            setSelectedInspectionDetail(mapRepoRow(match));
+            setCurrentTab('inspections');
+          } else {
+            showToast(`Inspection ${id.slice(0, 8)} not found in the registry.`, 'warning');
+          }
         }}
       />
 

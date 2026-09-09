@@ -1,13 +1,18 @@
 import Constants from 'expo-constants';
 
+import { Platform } from 'react-native';
+
 const fromEnv =
   (Constants.expoConfig?.extra as any)?.apiBaseUrl ||
   process.env.EXPO_PUBLIC_API_BASE_URL ||
-  'http://10.0.2.2:8000/api/v1';
+  'http://localhost:8000/api/v1';
 
-export const API_BASE_URL = (__DEV__ && fromEnv.includes('localhost'))
-  ? fromEnv.replace('localhost', '10.0.2.2')
-  : fromEnv;
+export const API_BASE_URL = (() => {
+  if (Platform.OS === 'android' && fromEnv.includes('localhost')) {
+    return fromEnv.replace('localhost', '10.0.2.2');
+  }
+  return fromEnv;
+})();
 
 export const Endpoints = {
   loginJson: '/auth/login/json',
@@ -29,4 +34,6 @@ export const Endpoints = {
   report: (id: string) => `/inspections/${id}/report`,
   officerDashboard: '/dashboard/officer',
   commodities: '/commodities',
+  commodityDetail: (id: string) => `/commodities/${id}`,
+  submit: (id: string) => `/inspections/${id}/submit`,
 } as const;

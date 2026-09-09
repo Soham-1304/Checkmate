@@ -1,9 +1,10 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, Animated, StyleSheet } from 'react-native';
+import { View, Text, Animated, StyleSheet, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { MaterialIcons } from '@expo/vector-icons';
-import { Colors, Typography, Spacing } from '../src/theme';
+import { Colors, Typography } from '../src/theme';
+
+const LOGO = require('../assets/logo.png');
 
 export default function SplashScreen() {
   const router = useRouter();
@@ -31,14 +32,12 @@ export default function SplashScreen() {
 
       {/* Logo */}
       <Animated.View style={[styles.logo, { transform: [{ scale: pulseAnim }] }]}>
-        <LinearGradient colors={[Colors.accent, Colors.accentDark]} style={styles.logoGradient}>
-          <MaterialIcons name="verified" size={48} color={Colors.textPrimary} />
-        </LinearGradient>
+        <Image source={LOGO} style={styles.logoImage} resizeMode="contain" />
       </Animated.View>
 
       <Animated.View style={{ opacity: fadeAnim, alignItems: 'center' }}>
         <Text style={[Typography.headlineLarge, { color: Colors.textPrimary, fontWeight: '800', letterSpacing: 1.5, marginTop: 32 }]}>
-          SIH Comply
+          Checkmate
         </Text>
         <Text style={[Typography.bodyMedium, { color: Colors.textSecondary, letterSpacing: 0.5, marginTop: 8 }]}>
           Product Compliance Intelligence
@@ -58,11 +57,9 @@ const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   orb: { position: 'absolute', borderRadius: 999 },
   logo: { alignItems: 'center' },
-  logoGradient: {
-    width: 100, height: 100, borderRadius: 50,
-    justifyContent: 'center', alignItems: 'center',
-    shadowColor: Colors.accent, shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4, shadowRadius: 32, elevation: 10,
+  logoImage: {
+    width: 160,
+    height: 160,
   },
   bottom: { position: 'absolute', bottom: 40, alignItems: 'center' },
 });

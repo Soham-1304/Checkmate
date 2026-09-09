@@ -62,20 +62,29 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Date & Time display */}
         <div className="hidden lg:block text-xs font-medium text-slate-500">
-          5 Sep 2026 • 11:24 AM
+          {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} • {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
         </div>
 
         {/* User Info */}
-        <div className="flex items-center gap-2.5 cursor-pointer group">
-          <div className="w-8 h-8 rounded-full bg-[#017374] text-white flex items-center justify-center font-bold text-xs shadow-xs">
-            AV
-          </div>
-          <div className="hidden md:block text-left">
-            <div className="text-xs font-bold text-slate-800 leading-tight">Aarav Verma</div>
-            <div className="text-[11px] text-slate-400 leading-tight">Admin</div>
-          </div>
-          <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 hidden md:block" />
-        </div>
+        {(() => {
+          const adminName = localStorage.getItem('doca_admin_name') || 'DOCA Enforcement Admin';
+          const adminRole = localStorage.getItem('doca_admin_role') || 'Admin';
+          const initials = adminName.split(' ').map((w) => w[0]).filter(Boolean).slice(0, 2).join('') || 'DA';
+          return (
+            <div
+              className="flex items-center gap-2.5 cursor-pointer group"
+              title="Signed in as Administrator"
+            >
+              <div className="w-8 h-8 rounded-full bg-[#017374] text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                {initials}
+              </div>
+              <div className="hidden md:block text-left">
+                <div className="text-xs font-bold text-slate-800 leading-tight">{adminName}</div>
+                <div className="text-[11px] text-[#017374] font-semibold leading-tight capitalize">{adminRole.toLowerCase()}</div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Export Button */}
         <button
