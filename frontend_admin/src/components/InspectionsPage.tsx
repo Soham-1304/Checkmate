@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { InspectorIllustration } from './InspectorIllustration';
 import { ProductMockup } from './ProductMockup';
-import { INSPECTIONS_LIST_DATA, InspectionDetailRow } from '../data/inspectionsData';
+import { InspectionDetailRow } from '../data/inspectionsData';
 import { useLiveInspections } from '../api/useLiveData';
 
 interface InspectionsPageProps {
@@ -36,7 +36,24 @@ export const InspectionsPage: React.FC<InspectionsPageProps> = ({
   const [selectedCompliance, setSelectedCompliance] = useState('All');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const { data: liveInspections } = useLiveInspections(INSPECTIONS_LIST_DATA);
+  // Live seeded inspections only — no mock rows
+  const { data: liveRows, live } = useLiveInspections();
+  const liveInspections: InspectionDetailRow[] = liveRows.map((r) => ({
+    id: r.shortId,
+    backendId: r.backendId,
+    isHighPriority: r.isHighPriority,
+    product: {
+      name: r.productName,
+      category: r.category,
+      mockupType: r.mockupType as InspectionDetailRow['product']['mockupType'],
+    },
+    company: { name: r.brandName, industry: '' },
+    officer: { name: r.officerName, initials: r.officerInitials },
+    dateTime: r.dateTime,
+    compliance: r.compliance,
+    aiFinding: { confidence: r.aiConfidence, description: r.aiDescription },
+    status: r.status,
+  }));
 
   const stats = React.useMemo(() => {
     const total = liveInspections.length;
@@ -274,6 +291,12 @@ export const InspectionsPage: React.FC<InspectionsPageProps> = ({
       </div>
 
       {/* 3. Inspections Main Table Card */}
+      {!live && (
+        <div className="bg-[#FEB519]/15 border border-[#FEB519]/40 text-[#9a6206] text-xs font-semibold px-5 py-3 rounded-2xl">
+          Backend not connected — set your admin token (localStorage key
+          <span className="font-mono"> doca_admin_token</span>) and reload to see seeded inspections.
+        </div>
+      )}
       <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
         {/* Table Top Status / Pagination Header */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between text-xs text-slate-500">

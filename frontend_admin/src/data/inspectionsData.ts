@@ -2,6 +2,7 @@ import { ProductType } from '../components/ProductMockup';
 
 export interface InspectionDetailRow {
   id: string;
+  backendId?: string;
   isHighPriority?: boolean;
   product: {
     name: string;

@@ -179,6 +179,208 @@ export function useLiveHighRisk(fallback: LiveRiskCompany[]) {
   return { data, live };
 }
 
+export type MockupType =
+  | 'amul' | 'britannia' | 'mdh' | 'parleg' | 'classmate'
+  | 'maggi' | 'fortune' | 'haldirams' | 'tatatea' | 'tata';
+
+export const brandMockup = (brand?: string | null): MockupType => {
+  const b = (brand || '').toLowerCase();
+  if (b.includes('amul')) return 'amul';
+  if (b.includes('britannia')) return 'britannia';
+  if (b.includes('parle')) return 'parleg';
+  if (b.includes('maggi') || b.includes('nestl')) return 'maggi';
+  if (b.includes('haldiram')) return 'haldirams';
+  if (b.includes('tata') && b.includes('tea')) return 'tatatea';
+  if (b.includes('tata')) return 'tata';
+  if (b.includes('saffola') || b.includes('fortune') || b.includes('oil')) return 'fortune';
+  if (b.includes('aashirvaad') || b.includes('atta') || b.includes('flour')) return 'classmate';
+  if (b.includes('mdh') || b.includes('spice')) return 'mdh';
+  return 'tata';
+};
+
+export interface LiveInspectionRow {
+  backendId: string;
+  shortId: string;
+  productName: string;
+  category: string;
+  mockupType: MockupType;
+  brandName: string;
+  officerName: string;
+  officerInitials: string;
+  dateTime: string;
+  compliance: 'Compliant' | 'Minor' | 'Major' | 'Critical';
+  aiConfidence: number;
+  aiDescription: string;
+  status: 'AI Review' | 'Pending' | 'Approved' | 'Rejected' | 'Re-inspection';
+  isHighPriority: boolean;
+}
+
+export const asList = (d: any): any[] =>
+  Array.isArray(d) ? d : d?.items ?? d?.commodities ?? d?.users ?? [];
+
+const initialsOf = (name: string) =>
+  name.split(/\s+/).map((w) => w[0]?.toUpperCase() ?? '').slice(0, 2).join('') || 'OF';
+
+const fmtDate = (iso: string) => {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  const mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
+  const dd = String(d.getDate()).padStart(2, '0');
+  let h = d.getHours();
+  const ap = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return `${dd} ${mon} ${d.getFullYear()} ${String(h).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')} ${ap}`;
+};
+
+export function useLiveInspections() {
+  const [data, setData] = useState<LiveInspectionRow[]>([]);
+  const [live, setLive] = useState(false);
+  useEffect(() => {
+    if (!isLiveConfigured()) return;
+    (async () => {
+      try {
+        const [inspections, users, commodities] = await Promise.all([
+          api<any[]>('/inspections?limit=50'),
+          api<any>('/users?limit=100').catch(() => []),
+          api<any>('/commodities?limit=100').catch(() => []),
+        ]);
+        if (!inspections?.length) return;
+        const officerById: Record<string, string> = {};
+        asList(users).forEach((u: any) => {
+          if (u?.id) officerById[String(u.id)] = String(u.name ?? u.email ?? 'Officer');
+        });
+        const catByCommodity: Record<string, string> = {};
+        asList(commodities).forEach((c: any) => {
+          if (c?.id) catByCommodity[String(c.id)] = String(c.category ?? '');
+        });
+        const details = await Promise.all(
+          inspections.map((i: any) =>
+            api<any>(`/inspections/${i.id}`).catch(() => null),
+          ),
+        );
+        const rows: LiveInspectionRow[] = inspections.map((i: any, idx: number) => {
+          const d = details[idx];
+          const verdict = String(i.compliance_result ?? 'REVIEW').toUpperCase();
+          const compliance =
+            verdict === 'PASS' ? ('Compliant' as const)
+            : verdict === 'FAIL' ? ('Major' as const)
+            : ('Minor' as const);
+          const finalDec = String(i.final_decision ?? '');
+          const st = String(i.status ?? '');
+          const status =
+            st === 'UNDER_REVIEW' ? ('AI Review' as const)
+            : st === 'COMPLETED'
+              ? (finalDec === 'APPROVED_NON_COMPLIANT' ? ('Rejected' as const) : ('Approved' as const))
+            : st === 'IN_PROGRESS' && finalDec === 'RETURNED_FOR_REVIEW'
+              ? ('Re-inspection' as const)
+              : ('Pending' as const);
+          const findings = d?.findings ?? [];
+          const decls = d?.declarations ?? [];
+          const confs = decls.map((x: any) => Number(x.confidence)).filter((n: number) => !Number.isNaN(n));
+          const aiConfidence = confs.length
+            ? Math.round((confs.reduce((a: number, b: number) => a + b, 0) / confs.length) * 100)
+            : 0;
+          const firstFinding = String(findings[0]?.title ?? '')
+            .replace(/^(Non-Compliance|Review Warranted):\s*/, '')
+            .slice(0, 60) || (verdict === 'PASS' ? 'All declarations compliant' : 'Pending analysis');
+          const officerName = officerById[String(i.officer_id)] ?? 'Field Officer';
+          const brandName = String(i.brand_name ?? 'Brand');
+          return {
+            backendId: String(i.id),
+            shortId: String(i.id).slice(0, 8).toUpperCase(),
+            productName: String(i.commodity_name ?? 'Commodity'),
+            category: catByCommodity[String(i.commodity_id)] || '',
+            mockupType: brandMockup(brandName),
+            brandName,
+            officerName,
+            officerInitials: initialsOf(officerName),
+            dateTime: fmtDate(i.created_at),
+            compliance,
+            aiConfidence,
+            aiDescription: firstFinding,
+            status,
+            isHighPriority: verdict === 'FAIL',
+          };
+        });
+        setData(rows);
+        setLive(true);
+      } catch {}
+    })();
+  }, []);
+  return { data, live };
+}
+
+export interface LiveInspectionDetail {
+  backendId: string;
+  verdict: string;
+  status: string;
+  brandName: string;
+  commodityName: string;
+  officerName: string;
+  createdAt: string;
+  evidence: { id: string; file_url: string | null; view_type: string }[];
+  declarations: {
+    display_name: string; canonical_key: string; final_value: string | null;
+    confidence: number | null; is_corrected: boolean;
+  }[];
+  findings: {
+    title: string; explanation: string; severity: string; legal_reference: string;
+    officer_accepted: boolean | null;
+  }[];
+  reportUrl: string | null;
+}
+
+export function useLiveInspectionDetail(backendId: string | null) {
+  const [data, setData] = useState<LiveInspectionDetail | null>(null);
+  const [loading, setLoading] = useState(!!backendId);
+  useEffect(() => {
+    if (!backendId || !isLiveConfigured()) { setLoading(false); return; }
+    setLoading(true);
+    (async () => {
+      try {
+        const [d, users, report] = await Promise.all([
+          api<any>(`/inspections/${backendId}`),
+          api<any>('/users?limit=100').catch(() => []),
+          api<any>(`/inspections/${backendId}/report`).catch(() => null),
+        ]);
+        const officerById: Record<string, string> = {};
+        asList(users).forEach((u: any) => {
+          if (u?.id) officerById[String(u.id)] = String(u.name ?? u.email ?? 'Officer');
+        });
+        setData({
+          backendId,
+          verdict: String(d.compliance_result ?? 'PENDING'),
+          status: String(d.status ?? ''),
+          brandName: String(d.brand_name ?? 'Brand'),
+          commodityName: String(d.commodity_name ?? 'Commodity'),
+          officerName: officerById[String(d.officer_id)] ?? 'Field Officer',
+          createdAt: d.created_at ?? '',
+          evidence: (d.evidence_items ?? []).map((e: any) => ({
+            id: String(e.id), file_url: e.file_url ?? null, view_type: String(e.view_type ?? ''),
+          })),
+          declarations: (d.declarations ?? []).map((x: any) => ({
+            display_name: String(x.display_name ?? x.canonical_key ?? 'Field'),
+            canonical_key: String(x.canonical_key ?? ''),
+            final_value: x.final_value ?? x.machine_value ?? null,
+            confidence: typeof x.confidence === 'number' ? x.confidence : null,
+            is_corrected: !!x.is_corrected,
+          })),
+          findings: (d.findings ?? []).map((f: any) => ({
+            title: String(f.title ?? ''),
+            explanation: String(f.explanation ?? ''),
+            severity: String(f.severity ?? ''),
+            legal_reference: String(f.legal_reference ?? ''),
+            officer_accepted: f.officer_accepted ?? null,
+          })),
+          reportUrl: report?.file_url ?? null,
+        });
+      } catch {}
+      setLoading(false);
+    })();
+  }, [backendId]);
+  return { data, loading };
+}
+
 export interface LiveWorkloadItem {
   id: string;
   name: string;
@@ -239,14 +441,6 @@ const colorFor = (s: string) =>
   AV_COLORS[[...s].reduce((a, c) => a + c.charCodeAt(0), 0) % AV_COLORS.length];
 const mkInitials = (name: string) =>
   name.split(/\s+/).map((w) => w[0]?.toUpperCase() ?? '').slice(0, 2).join('') || '??';
-const fmtDate = (iso: string) => {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const hh = d.getHours() % 12 || 12;
-  const ampm = d.getHours() >= 12 ? 'PM' : 'AM';
-  return `${String(d.getDate()).padStart(2, '0')} ${months[d.getMonth()]} ${d.getFullYear()} ${String(hh).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')} ${ampm}`;
-};
 const BRAND_TO_MOCKUP: Record<string, ProductType> = {
   amul: 'amul', britannia: 'britannia', mdh: 'mdh', parle: 'parleg',
   maggi: 'maggi', fortune: 'fortune', haldiram: 'haldirams', tata: 'tatatea',
@@ -321,20 +515,6 @@ export async function fetchRepoRows(): Promise<RepoRow[]> {
     return [];
   }
 }
-
-export function useLiveInspections(fallback: InspectionDetailRow[]) {
-  const [data, setData] = useState<InspectionDetailRow[]>(fallback);
-  const [live, setLive] = useState(false);
-  const rows = useRepoRows();
-  useEffect(() => {
-    if (rows.length) {
-      setData(rows.map(mapRepoRow));
-      setLive(true);
-    }
-  }, [rows]);
-  return { data, live };
-}
-
 
 export function useLiveCompanies(fallback: CompanyRegistryRow[]) {
   const [data, setData] = useState<CompanyRegistryRow[]>(fallback);

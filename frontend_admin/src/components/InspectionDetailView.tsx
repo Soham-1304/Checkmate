@@ -1,8 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   ArrowLeft,
   CheckCircle2,
-  AlertTriangle,
   RotateCcw,
   XCircle,
   ShieldCheck,
@@ -10,13 +9,12 @@ import {
   Calendar,
   MapPin,
   User,
+  Sparkles,
   FileText,
-  Loader2,
-  Camera,
-  Scale,
+  ExternalLink,
 } from 'lucide-react';
 import { InspectionDetailRow } from '../data/inspectionsData';
-import { api, isLiveConfigured } from '../api/client';
+import { useLiveInspectionDetail } from '../api/useLiveData';
 
 interface InspectionDetailViewProps {
   inspection: InspectionDetailRow | null;
@@ -26,52 +24,12 @@ interface InspectionDetailViewProps {
   onReject: (id: string) => void;
 }
 
-interface EvidenceItem {
-  id: string;
-  file_url?: string;
-  url?: string;
-  view_type: string;
-  mime_type?: string;
-  created_at: string;
-}
-interface DeclarationItem {
-  id: string;
-  canonical_key: string;
-  display_name?: string;
-  final_value?: string | number | null;
-  machine_value?: string | number | null;
-  confidence?: number | null;
-  confidence_label?: string;
-  script_language?: string;
-}
-interface FindingItem {
-  id: string;
-  severity: string;
-  title: string;
-  explanation?: string;
-  legal_reference?: string;
-}
-interface InspectionFull {
-  id: string;
-  status: string;
-  compliance_result?: string | null;
-  final_decision?: string | null;
-  context_notes?: string | null;
-  created_at: string;
-  submitted_at?: string | null;
-}
-
-const SEV_STYLE: Record<string, string> = {
-  CRITICAL: 'bg-rose-100 text-rose-700 border-rose-200',
-  MAJOR: 'bg-[#E37820]/15 text-[#E37820] border-[#E37820]/30',
-  MINOR: 'bg-amber-100 text-[#9a6206] border-amber-200',
-  INFO: 'bg-emerald-100 text-[#017374] border-emerald-200',
-};
-const COMP_STYLE: Record<string, string> = {
-  Compliant: 'bg-emerald-100 text-[#017374] border-emerald-200',
-  Minor: 'bg-amber-100 text-[#9a6206] border-amber-200',
-  Major: 'bg-[#E37820]/15 text-[#E37820] border-[#E37820]/30',
-  Critical: 'bg-rose-100 text-rose-700 border-rose-200',
+const verdictStyle = (v: string) => {
+  const u = v.toUpperCase();
+  if (u === 'PASS') return { label: 'Compliant', cls: 'bg-emerald-100 text-[#017374] border-emerald-200' };
+  if (u === 'FAIL') return { label: 'Non-Compliant', cls: 'bg-[#E37820]/15 text-[#E37820] border-[#E37820]/30' };
+  if (u === 'REVIEW') return { label: 'Needs Review', cls: 'bg-[#FEB519]/20 text-[#9a6206] border-[#FEB519]/40' };
+  return { label: 'Pending', cls: 'bg-slate-100 text-slate-600 border-slate-200' };
 };
 
 export const InspectionDetailView: React.FC<InspectionDetailViewProps> = ({
@@ -81,279 +39,297 @@ export const InspectionDetailView: React.FC<InspectionDetailViewProps> = ({
   onRequestReinspection,
   onReject,
 }) => {
-  const [full, setFull] = useState<InspectionFull | null>(null);
-  const [evidence, setEvidence] = useState<EvidenceItem[]>([]);
-  const [declarations, setDeclarations] = useState<DeclarationItem[]>([]);
-  const [findings, setFindings] = useState<FindingItem[]>([]);
-  const [reportUrl, setReportUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const backendId = inspection?.backendId ?? null;
+  const { data: live, loading } = useLiveInspectionDetail(backendId);
 
-  const inspId = inspection?.id ?? null;
+  const code = inspection?.id ?? '—';
+  const v = verdictStyle(live?.verdict ?? '');
+  const isFail = (live?.verdict ?? '').toUpperCase() === 'FAIL';
 
-  useEffect(() => {
-    if (!inspId || !isLiveConfigured()) return;
-    let cancelled = false;
-    setLoading(true);
-    setLoadError(null);
-    Promise.allSettled([
-      api<InspectionFull>(`/inspections/${inspId}`),
-      api<EvidenceItem[]>(`/inspections/${inspId}/evidence`),
-      api<DeclarationItem[] | { declarations?: DeclarationItem[] }>(`/inspections/${inspId}/declarations`),
-      api<FindingItem[]>(`/inspections/${inspId}/findings`),
-    ]).then((res) => {
-      if (cancelled) return;
-      if (res[0].status === 'fulfilled') setFull(res[0].value);
-      if (res[1].status === 'fulfilled') setEvidence(res[1].value ?? []);
-      if (res[2].status === 'fulfilled') {
-        const v = res[2].value;
-        setDeclarations(Array.isArray(v) ? v : v?.declarations ?? []);
-      }
-      if (res[3].status === 'fulfilled') setFindings(res[3].value ?? []);
-      if (res[0].status === 'rejected') setLoadError('Live record unavailable — showing summary.');
-      setLoading(false);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [inspId]);
-
-  const openReport = async () => {
-    if (!inspId) return;
-    try {
-      const r = await api<{ file_url?: string; url?: string }>(`/inspections/${inspId}/report`);
-      const url = r?.file_url ?? r?.url;
-      if (url) {
-        setReportUrl(url);
-        window.open(url, '_blank', 'noopener');
-      }
-    } catch {
-      setLoadError('Could not open the report.');
-    }
+  const openReport = () => {
+    if (live?.reportUrl) window.open(live.reportUrl, '_blank', 'noopener');
   };
 
-  if (!inspection) {
-    return (
-      <div className="bg-white rounded-3xl p-12 border border-slate-200/80 text-center">
-        <p className="text-sm text-slate-500">Select an inspection from the list to view its record.</p>
-        <button onClick={onBack} className="mt-4 px-4 py-2 rounded-xl bg-[#017374] text-white text-xs font-bold">Back to inspections</button>
-      </div>
-    );
-  }
-
-  const detected = declarations.map((d) => ({
-    label: d.display_name ?? d.canonical_key,
-    value: String(d.final_value ?? d.machine_value ?? '—'),
-    conf: d.confidence != null ? Math.round(d.confidence * 100) : null,
-    heard: (d.confidence_label ?? '').toUpperCase() !== 'UNDETECTED',
-  }));
-  const heardCount = detected.filter((d) => d.value !== '—').length;
-  const verdict = full?.compliance_result ?? ({ Compliant: 'PASS', Minor: 'REVIEW', Major: 'FAIL', Critical: 'FAIL' } as Record<string, string>)[inspection.compliance] ?? null;
-  const decided = !!full?.final_decision;
-
   return (
-    <div className="space-y-5 animate-fadeIn">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
+    <div className="space-y-6 animate-fadeIn">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
           <button
             onClick={onBack}
-            className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-[#017374] hover:border-[#017374] transition-all shadow-2xs group shrink-0"
+            className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-[#017374] hover:border-[#017374] transition-all shadow-2xs group"
             title="Back to inspections"
           >
             <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
           </button>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl font-black text-slate-900 tracking-tight truncate">{inspection.product.name}</h1>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-500 font-mono">
-                {inspection.id.slice(0, 8)}
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+              Inspection {code}
+            </h1>
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-white border border-slate-200 text-slate-600 shadow-2xs">
+              {live?.status?.replace(/_/g, ' ') ?? inspection?.status ?? '—'}
+            </span>
+            {isFail && (
+              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-[#E37820]/15 text-[#E37820] border border-[#E37820]/30 shadow-2xs">
+                High Priority
               </span>
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${COMP_STYLE[inspection.compliance] ?? COMP_STYLE.Minor}`}>
-                {verdict ?? inspection.compliance}
-              </span>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-slate-600">
-                {full?.status ?? inspection.status}
-              </span>
-              {decided && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#017374]/10 border border-[#017374]/30 text-[#017374]">
-                  {full?.final_decision?.replace(/_/g, ' ')}
-                </span>
-              )}
-            </div>
-            <p className="text-[11px] text-slate-500 mt-0.5">
-              {inspection.company.name} · {inspection.officer.name} · {inspection.dateTime}
-            </p>
+            )}
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        {live?.reportUrl && (
           <button
             onClick={openReport}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#017374] hover:bg-[#015758] text-white text-xs font-bold shadow-xs transition-all"
-            title="View / export the official PDF report"
+            className="flex items-center gap-1.5 bg-white border border-slate-200 hover:border-[#017374] text-[#017374] px-4 py-2 rounded-xl text-xs font-bold shadow-2xs transition-all self-start sm:self-auto"
           >
-            <FileText className="w-4 h-4" />
-            View / Export Report
+            <FileText className="w-3.5 h-3.5" />
+            <span>Open PDF Report</span>
+            <ExternalLink className="w-3 h-3" />
           </button>
-        </div>
+        )}
       </div>
 
-      {loadError && (
-        <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200 text-[11px] font-semibold text-amber-800">
-          <AlertTriangle className="w-4 h-4 shrink-0" /> {loadError}
+      {loading && (
+        <div className="bg-white rounded-3xl p-10 border border-slate-200/80 text-center text-xs text-slate-500 font-medium">
+          Loading live inspection data…
         </div>
       )}
 
-      {/* Main grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Left: record info + detections */}
-        <div className="lg:col-span-4 space-y-5">
-          <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs">
-            <h2 className="text-xs font-bold text-slate-900 border-b border-slate-100 pb-3 flex items-center gap-2 mb-3">
-              <Building2 className="w-4 h-4 text-[#017374]" /> Inspection record
-            </h2>
-            <div className="space-y-2.5 text-xs">
-              <InfoRow label="Company" value={inspection.company.name} bold />
-              <InfoRow label="Product" value={inspection.product.name} bold />
-              <InfoRow label="Officer" value={inspection.officer.name} />
-              <InfoRow label="Captured" value={inspection.dateTime} />
-              {full?.context_notes && <InfoRow label="Notes" value={full.context_notes} />}
-              {full?.submitted_at && <InfoRow label="Submitted" value={new Date(full.submitted_at).toLocaleString()} />}
-            </div>
-          </div>
-
-          <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs">
-            <h2 className="text-xs font-bold text-slate-900 border-b border-slate-100 pb-3 flex items-center gap-2 mb-1">
-              <Scale className="w-4 h-4 text-[#017374]" />
-              Label declarations
-              <span className="ml-auto text-[10px] font-semibold text-slate-400">{heardCount}/{detected.length} detected</span>
-            </h2>
-            {loading && (
-              <div className="flex items-center gap-2 py-4 text-xs text-slate-400">
-                <Loader2 className="w-4 h-4 animate-spin text-[#017374]" /> Loading OCR results…
-              </div>
-            )}
-            {!loading && detected.length === 0 && (
-              <p className="py-4 text-[11px] text-slate-400">No OCR declarations on record for this inspection.</p>
-            )}
-            <div className="divide-y divide-slate-100">
-              {detected.map((d, i) => (
-                <div key={i} className="py-2 flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="text-[11px] font-semibold text-slate-700 truncate">{d.label}</div>
-                    <div className={`text-xs font-bold truncate ${d.value === '—' ? 'text-slate-300' : 'text-slate-900'}`}>{d.value}</div>
-                  </div>
-                  {d.conf != null && d.value !== '—' && (
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-[#E5F0EC] text-[#017374] shrink-0">{d.conf}%</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
+      {!loading && !live && (
+        <div className="bg-[#FEB519]/15 border border-[#FEB519]/40 rounded-3xl p-10 text-center text-xs text-[#9a6206] font-semibold">
+          Could not load this inspection from the backend. Check your admin token and reload.
         </div>
+      )}
 
-        {/* Middle: evidence photos */}
-        <div className="lg:col-span-4 space-y-5">
-          <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs">
-            <h2 className="text-xs font-bold text-slate-900 border-b border-slate-100 pb-3 flex items-center gap-2 mb-3">
-              <Camera className="w-4 h-4 text-[#017374]" />
-              Package evidence
-              <span className="ml-auto text-[10px] font-semibold text-slate-400">{evidence.length} photo(s)</span>
-            </h2>
-            {evidence.length === 0 && !loading && (
-              <p className="py-4 text-[11px] text-slate-400">No evidence photos stored for this inspection.</p>
-            )}
-            <div className="space-y-3">
-              {evidence.map((ev) => {
-                const url = ev.file_url ?? ev.url;
-                return (
-                  <a key={ev.id} href={url} target="_blank" rel="noopener" className="block group">
-                    <div className="relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-50">
-                      {url ? (
-                        <img src={url} alt={ev.view_type} className="w-full object-cover max-h-64 group-hover:scale-[1.01] transition-transform" loading="lazy" />
-                      ) : (
-                        <div className="h-32 flex items-center justify-center text-slate-300 text-[11px]">preview unavailable</div>
-                      )}
-                      <span className="absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-900/70 text-white">
-                        {ev.view_type?.replace(/_/g, ' ') ?? 'PHOTO'}
+      {live && (
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="lg:col-span-3 bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4">
+              <h2 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-3 flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-[#017374]" />
+                Inspection Info
+              </h2>
+              <div className="space-y-3 text-xs">
+                <div>
+                  <div className="text-slate-400 text-[11px]">Brand</div>
+                  <div className="font-bold text-slate-800">{live.brandName}</div>
+                </div>
+                <div>
+                  <div className="text-slate-400 text-[11px]">Product</div>
+                  <div className="font-bold text-slate-800">{live.commodityName}</div>
+                </div>
+                <div>
+                  <div className="text-slate-400 text-[11px]">AI Verdict</div>
+                  <span className={`inline-block font-bold px-3 py-1 rounded-full border ${v.cls}`}>
+                    {v.label}
+                  </span>
+                </div>
+                <div>
+                  <div className="text-slate-400 text-[11px]">Inspected</div>
+                  <div className="font-semibold text-slate-700 flex items-center gap-1 mt-0.5">
+                    <Calendar className="w-3 h-3 text-[#017374]" />
+                    {live.createdAt ? live.createdAt.slice(0, 10) : '—'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-slate-400 text-[11px]">Inspector</div>
+                  <div className="font-semibold text-slate-700 flex items-center gap-1 mt-0.5">
+                    <User className="w-3 h-3 text-[#017374]" />
+                    {live.officerName}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-slate-400 text-[11px]">Evidence photos</div>
+                  <div className="font-semibold text-slate-700 flex items-center gap-1 mt-0.5">
+                    <MapPin className="w-3 h-3 text-[#017374]" />
+                    {live.evidence.length} uploaded
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="lg:col-span-5 bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs flex flex-col items-center">
+              {live.evidence.length > 0 ? (
+                <>
+                  <div className="relative w-full max-w-[320px] aspect-[4/5] bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden shadow-inner">
+                    <img
+                      src={live.evidence[Math.min(selectedImageIndex, live.evidence.length - 1)]?.file_url ?? ''}
+                      alt="Evidence"
+                      className="w-full h-full object-contain"
+                    />
+                    <span className="absolute bottom-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-900/70 text-white">
+                      {live.evidence[Math.min(selectedImageIndex, live.evidence.length - 1)]?.view_type ?? ''}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 pt-4 overflow-x-auto max-w-full">
+                    {live.evidence.map((e, idx) => (
+                      <div
+                        key={e.id}
+                        onClick={() => setSelectedImageIndex(idx)}
+                        className={`w-12 h-14 rounded-xl border-2 overflow-hidden cursor-pointer transition-all shrink-0 ${
+                          selectedImageIndex === idx
+                            ? 'border-[#E37820] shadow-xs'
+                            : 'border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        <img src={e.file_url ?? ''} alt={e.view_type} className="w-full h-full object-cover" />
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="text-xs text-slate-400 font-medium py-16">No evidence photos on this inspection.</div>
+              )}
+            </div>
+
+            <div className="lg:col-span-4 space-y-6 flex flex-col">
+              <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4">
+                <h2 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-3 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-[#017374]" />
+                  AI Findings ({live.findings.length})
+                </h2>
+                <div className="space-y-3.5">
+                  {live.findings.length === 0 && (
+                    <div className="text-xs text-slate-500 font-medium">
+                      No rule violations — all declarations compliant.
+                    </div>
+                  )}
+                  {live.findings.map((f, i) => (
+                    <div key={i} className="flex items-start justify-between gap-3 p-2.5 rounded-2xl hover:bg-slate-50">
+                      <div className="flex items-start gap-2.5">
+                        <div className="w-5 h-5 rounded-full bg-[#E37820] text-white text-[11px] font-black flex items-center justify-center shrink-0 mt-0.5">
+                          {i + 1}
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-slate-900">{f.title}</div>
+                          <div className="text-[11px] text-slate-500 line-clamp-2">{f.explanation}</div>
+                          {f.legal_reference && (
+                            <div className="text-[10px] font-semibold text-[#017374] mt-0.5">{f.legal_reference}</div>
+                          )}
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#E37820]/15 text-[#E37820] shrink-0">
+                        {f.severity || 'Finding'}
                       </span>
                     </div>
-                  </a>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* Right: findings + decision */}
-        <div className="lg:col-span-4 space-y-5">
-          <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs">
-            <h2 className="text-xs font-bold text-slate-900 border-b border-slate-100 pb-3 flex items-center gap-2 mb-3">
-              <ShieldCheck className="w-4 h-4 text-[#017374]" />
-              AI findings
-              <span className="ml-auto text-[10px] font-semibold text-slate-400">{findings.length}</span>
-            </h2>
-            {findings.length === 0 && !loading && (
-              <p className="py-4 text-[11px] text-slate-400">No rule findings — all label checks passed.</p>
-            )}
-            <div className="space-y-2.5">
-              {findings.map((f) => (
-                <div key={f.id} className={`p-3 rounded-xl border text-[11px] ${SEV_STYLE[f.severity] ?? SEV_STYLE.INFO}`}>
-                  <div className="font-bold">{f.title}</div>
-                  {f.explanation && <div className="mt-1 opacity-90 leading-relaxed">{f.explanation}</div>}
-                  {f.legal_reference && (
-                    <div className="mt-1.5 text-[10px] font-bold opacity-80">⚖ {f.legal_reference}</div>
-                  )}
+                  ))}
                 </div>
-              ))}
+              </div>
+
+              <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-3">
+                <div className="text-xs font-medium text-slate-400">AI Confidence (avg)</div>
+                <div className="flex items-center justify-between">
+                  <span className="text-3xl font-black text-slate-900">
+                    {(() => {
+                      const c = live.declarations.map((d) => d.confidence ?? 0).filter((n) => n > 0);
+                      return c.length ? `${Math.round((c.reduce((a, b) => a + b, 0) / c.length) * 100)}%` : '—';
+                    })()}
+                  </span>
+                  <span className={`text-xs font-bold px-3 py-1 rounded-full border ${v.cls}`}>
+                    {v.label}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs">
-            <h2 className="text-xs font-bold text-slate-900 border-b border-slate-100 pb-3 mb-3">Official decision</h2>
-            {decided ? (
-              <div className="flex items-center gap-2 p-3 rounded-xl bg-[#017374]/10 border border-[#017374]/30 text-xs font-bold text-[#017374]">
-                <CheckCircle2 className="w-4 h-4 shrink-0" />
-                {full?.final_decision?.replace(/_/g, ' ')}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="lg:col-span-8 bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4">
+              <h3 className="text-sm font-bold text-slate-900">
+                Declarations ({live.declarations.length})
+              </h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="text-[11px] font-bold text-slate-400 border-b border-slate-100 pb-2">
+                      <th className="pb-2 font-bold">Field</th>
+                      <th className="pb-2 font-bold">Value</th>
+                      <th className="pb-2 font-bold">Confidence</th>
+                      <th className="pb-2 font-bold">Officer</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50 font-medium">
+                    {live.declarations.map((d, i) => (
+                      <tr key={i} className="hover:bg-slate-50/60">
+                        <td className="py-3 font-semibold text-slate-800">{d.display_name}</td>
+                        <td className="py-3 text-slate-600 max-w-[220px] truncate" title={d.final_value ?? ''}>
+                          {d.final_value ?? '—'}
+                        </td>
+                        <td className="py-3">
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                            (d.confidence ?? 0) >= 0.8
+                              ? 'bg-emerald-100 text-[#017374]'
+                              : (d.confidence ?? 0) >= 0.6
+                                ? 'bg-[#FEB519]/20 text-[#9a6206]'
+                                : 'bg-[#E37820]/15 text-[#E37820]'
+                          }`}>
+                            {d.confidence != null ? `${Math.round(d.confidence * 100)}%` : '—'}
+                          </span>
+                        </td>
+                        <td className="py-3">
+                          {d.is_corrected ? (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-100">
+                              Corrected
+                            </span>
+                          ) : (
+                            <span className="text-slate-400">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-2">
-                <button
-                  onClick={() => onApprove(inspection.id)}
-                  className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#017374] hover:bg-[#015758] text-white text-xs font-bold transition-all"
-                >
-                  <CheckCircle2 className="w-4 h-4" /> Approve — Compliant
-                </button>
-                <button
-                  onClick={() => onReject(inspection.id)}
-                  className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#E37820] hover:bg-[#c96414] text-white text-xs font-bold transition-all"
-                >
-                  <XCircle className="w-4 h-4" /> Reject — Non-Compliant
-                </button>
-                <button
-                  onClick={() => onRequestReinspection(inspection.id)}
-                  className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-300 text-slate-600 text-xs font-bold hover:bg-slate-50 transition-all"
-                >
-                  <RotateCcw className="w-4 h-4" /> Return for re-inspection
-                </button>
-              </div>
-            )}
-            <div className="mt-3 flex items-center gap-2 text-[10px] text-slate-400">
-              <MapPin className="w-3.5 h-3.5 shrink-0" />
-              <User className="w-3.5 h-3.5 shrink-0" />
-              <Calendar className="w-3.5 h-3.5 shrink-0" />
-              <span>Decisions are written to the official audit trail.</span>
+            </div>
+
+            <div className="lg:col-span-4 flex flex-col justify-between gap-3">
+              <button
+                onClick={() => onApprove(code)}
+                className="flex-1 flex items-center gap-3 p-4 rounded-2xl bg-[#017374] hover:bg-[#015758] active:scale-[0.99] text-white transition-all shadow-sm text-left group"
+              >
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <div className="text-sm font-bold leading-tight">Approve</div>
+                  <div className="text-[11px] text-emerald-100 font-medium">Agree with AI findings</div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => onRequestReinspection(code)}
+                className="flex-1 flex items-center gap-3 p-4 rounded-2xl bg-[#E37820] hover:bg-[#c96414] active:scale-[0.99] text-white transition-all shadow-sm text-left group"
+              >
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                  <RotateCcw className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <div className="text-sm font-bold leading-tight">Request Re-inspection</div>
+                  <div className="text-[11px] text-amber-100 font-medium">Send officer to re-check</div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => onReject(code)}
+                className="flex-1 flex items-center gap-3 p-4 rounded-2xl bg-[#dc2626] hover:bg-[#b91c1c] active:scale-[0.99] text-white transition-all shadow-sm text-left group"
+              >
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                  <XCircle className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <div className="text-sm font-bold leading-tight">Reject</div>
+                  <div className="text-[11px] text-rose-100 font-medium">Disagree with AI findings</div>
+                </div>
+              </button>
             </div>
           </div>
-        </div>
-      </div>
+
+          <div className="flex items-center gap-2 text-[11px] text-slate-400 font-medium px-1">
+            <ShieldCheck className="w-3.5 h-3.5 text-[#017374]" />
+            <span>Live data — verdict, findings and declarations produced by the compliance engine, not mock content.</span>
+          </div>
+        </>
+      )}
+
     </div>
   );
 };
-
-const InfoRow: React.FC<{ label: string; value: string; bold?: boolean }> = ({ label, value, bold }) => (
-  <div>
-    <div className="text-slate-400 text-[11px]">{label}</div>
-    <div className={bold ? 'font-bold text-slate-800' : 'font-semibold text-slate-700'}>{value}</div>
-  </div>
-);

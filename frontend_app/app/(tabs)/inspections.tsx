@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, Radius } from '../../src/theme';
 import { useInspectionLogStore, InspectionLog } from '../../src/store/inspectionLogStore';
+import { useInspectStore } from '../../src/store/inspectStore';
 import { useAuthStore } from '../../src/store/authStore';
 import { fetchInspections, fetchCommodities } from '../../src/api/doca';
 
@@ -26,16 +27,22 @@ export default function InspectionsScreen() {
             productName: byId[i.commodity_id]?.generic_name ?? i.commodity_id.slice(0, 8),
             companyName: byId[i.commodity_id]?.category ?? '—',
             officerName: user?.name ?? 'Officer',
-            status: (i.final_decision?.startsWith('APPROVED')
+            // Workflow first: nothing verified until a final decision exists.
+            // DRAFT/IN_PROGRESS (no decision yet) => 'Pending', no compliance chip.
+            // UNDER_REVIEW (officer done, admin pending) => 'AI Review'.
+            // COMPLETED => 'Approved' (+ final verdict chip).
+            status: (i.status === 'COMPLETED' || i.final_decision?.startsWith('APPROVED')
               ? 'Approved'
-              : i.compliance_result === 'REVIEW'
+              : i.status === 'UNDER_REVIEW'
                 ? 'AI Review'
                 : 'Pending') as InspectionLog['status'],
-            complianceStatus: (i.compliance_result === 'PASS'
-              ? 'Compliant'
-              : i.compliance_result === 'FAIL'
-                ? 'Non-Compliant'
-                : undefined) as InspectionLog['complianceStatus'],
+            complianceStatus: (i.final_decision
+              ? (i.compliance_result === 'PASS'
+                ? 'Compliant'
+                : i.compliance_result === 'FAIL'
+                  ? 'Non-Compliant'
+                  : undefined)
+              : undefined) as InspectionLog['complianceStatus'],
           })),
         );
       } catch {
@@ -290,6 +297,7 @@ export default function InspectionsScreen() {
                 <Text style={[styles.tableHeaderCell, { width: 110 }]}>Product</Text>
                 <Text style={[styles.tableHeaderCell, { width: 80 }]}>Status</Text>
                 <Text style={[styles.tableHeaderCell, { width: 100 }]}>Compliance</Text>
+                <Text style={[styles.tableHeaderCell, { width: 56 }]}>Photo</Text>
               </View>
 
               {/* Table Body */}
@@ -329,6 +337,31 @@ export default function InspectionsScreen() {
                           <Text style={styles.tableCell}>-</Text>
                         )}
                       </View>
+                      {(() => {
+                        const needsPhoto =
+                          log.status !== 'Approved' &&
+                          (log.status === 'Pending' || !log.complianceStatus);
+                        return (
+                          <View style={[styles.tableCell, { width: 56, alignItems: 'center', justifyContent: 'center' }]}>
+                            {needsPhoto ? (
+                              <Pressable
+                                onPress={(e: any) => {
+                                  e?.stopPropagation?.();
+                                  useInspectStore.getState().reset();
+                                  useInspectStore.getState().setPendingInspection(log.id);
+                                  router.push('/inspect-confirm' as any);
+                                }}
+                                style={styles.photoAction}
+                                accessibilityLabel={`Add label photo to inspection ${log.id.slice(0, 8)}`}
+                              >
+                                <MaterialIcons name="add-a-photo" size={18} color="#FFFFFF" />
+                              </Pressable>
+                            ) : (
+                              <MaterialIcons name="check-circle" size={18} color={Colors.primary} />
+                            )}
+                          </View>
+                        );
+                      })()}
                     </Pressable>
                   );
                 })
@@ -551,6 +584,19 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 11,
     fontWeight: '600',
+  },
+  photoAction: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
   },
   emptyState: {
     padding: Spacing.xl * 2,

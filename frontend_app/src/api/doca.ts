@@ -1,5 +1,12 @@
 import apiClient from './client';
-import { Endpoints } from './endpoints';
+import { Endpoints, API_BASE_URL } from './endpoints';
+import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+// NOTE: axios instance defaults force `Content-Type: application/json` — fine for
+// JSON calls but it ALSO overrides upload headers. So uploads below bypass axios
+// and use raw fetch: the platform (browser XHR / RN networking) generates the
+// multipart boundary itself. Setting Content-Type manually (even the axios
+// default) strips the boundary -> FastAPI sees zero fields -> 422.
 
 export interface Inspection {
   id: string;
@@ -112,13 +119,33 @@ export const fetchCommodity = async (id: string): Promise<Commodity> =>
 export const uploadEvidence = async (
   inspectionId: string, uri: string, viewType = 'FRONT_PDP',
 ) => {
+  const token =
+    (await SecureStore.getItemAsync('access_token').catch(() => null)) ||
+    (await AsyncStorage.getItem('access_token').catch(() => null));
   const form = new FormData();
   form.append('view_type', viewType);
-  form.append('file', { uri, name: 'photo.jpg', type: 'image/jpeg' } as any);
-  return (await apiClient.post(Endpoints.uploadEvidence(inspectionId), form, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-    timeout: 60000,
-  })).data;
+  const lower = uri.split('?')[0].toLowerCase();
+  const ext = lower.endsWith('.png') ? 'png' : lower.endsWith('.webp') ? 'webp' : 'jpg';
+  const ct = `image/${ext === 'jpg' ? 'jpeg' : ext}`;
+  if (uri.startsWith('blob:') || uri.startsWith('http')) {
+    // Web: convert to a real File so the platform multipart encoder includes a
+    // filename + part Content-Type (RN-style {uri,name,type} objects fail here).
+    const blob = await (await fetch(uri)).blob();
+    form.append('file', new File([blob], `photo.${ext}`, { type: blob.type || ct }));
+  } else {
+    // Native: axios/Fetch polyfill resolves the local asset via this shape.
+    form.append('file', { uri, name: `photo.${ext}`, type: ct } as any);
+  }
+  const res = await fetch(`${API_BASE_URL}${Endpoints.uploadEvidence(inspectionId)}`, {
+    method: 'POST',
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: form,
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`upload failed (${res.status}): ${text.slice(0, 200)}`);
+  }
+  return res.json();
 };
 
 export const analyzeAuto = async (inspectionId: string, pkgHeightMm = 150) =>

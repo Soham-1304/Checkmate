@@ -1,20 +1,40 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, SafeAreaView, ScrollView, Image, ActivityIndicator, Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, Radius } from '../src/theme';
 import {
-  createInspection, uploadEvidence, analyzeAuto, evaluateInspection, submitInspection,
+  createInspection, uploadEvidence, analyzeAuto, evaluateInspection, submitInspection, fetchMyChecklist,
 } from '../src/api/doca';
 import { useInspectStore } from '../src/store/inspectStore';
+import { fetchInspections, fetchCommodities, fetchInspectionDetail } from '../src/api/doca';
 
 const VIEW_TYPES = ['FRONT_PDP', 'BACK_PANEL', 'SIDE_PANEL', 'CLOSEUP'];
 
 export default function InspectConfirmScreen() {
   const router = useRouter();
-  const { photos, assignment, brandName, addPhotos, removePhoto, reset } = useInspectStore();
+  const { photos, assignment, brandName, pendingInspectionId, setPendingInspection, addPhotos, removePhoto, reset } = useInspectStore();
+  const [pendingMeta, setPendingMeta] = useState<{ title: string; subtitle: string } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+
+  // Deep-link from the Inspections list: a pending (photo-less) inspection was
+  // chosen, so resolve its commodity from the API for the header card.
+  useEffect(() => {
+    if (assignment || !pendingInspectionId) return;
+    (async () => {
+      try {
+        const [inspections, commodities] = await Promise.all([fetchInspections(), fetchCommodities()]);
+        const insp = inspections.find((i) => i.id === pendingInspectionId);
+        if (!insp) return;
+        const c = commodities.find((x) => x.id === insp.commodity_id);
+        if (c) setPendingMeta({
+          title: `${c.brand_name ? c.brand_name + ' · ' : ''}${c.generic_name}`,
+          subtitle: c.barcode ?? insp.id.slice(0, 8),
+        });
+      } catch { /* header shows fallback text */ }
+    })();
+  }, [assignment, pendingInspectionId]);
 
   const handleAddMore = async () => {
     try {
@@ -32,6 +52,35 @@ export default function InspectConfirmScreen() {
   };
 
   const handleInspect = async () => {
+    // Continuation mode: photos are being added to an existing pending inspection.
+    if (!assignment && pendingInspectionId) {
+      if (!photos.length) {
+        Alert.alert('No photos', 'Capture or add at least one label photo.');
+        return;
+      }
+      try {
+        for (let i = 0; i < photos.length; i++) {
+          setBusy(`Uploading photo ${i + 1} of ${photos.length}…`);
+          await uploadEvidence(pendingInspectionId, photos[i], VIEW_TYPES[Math.min(i, VIEW_TYPES.length - 1)]);
+        }
+        setBusy('Running AI analysis…');
+        await analyzeAuto(pendingInspectionId);
+        setBusy('Evaluating compliance…');
+        await evaluateInspection(pendingInspectionId);
+        setBusy('Submitting for review…');
+        await submitInspection(pendingInspectionId);
+        const doneId = pendingInspectionId;
+        setPendingInspection(null);
+        reset();
+        router.replace(`/analysis/${doneId}` as any);
+      } catch (e: any) {
+        const msg = e?.response?.data?.detail || e?.message || 'Upload or AI analysis failed. Try again.';
+        Alert.alert('Inspection failed', typeof msg === 'string' ? msg : 'Upload or AI analysis failed.');
+      } finally {
+        setBusy(null);
+      }
+      return;
+    }
     if (!assignment) {
       Alert.alert('No item selected', 'Go back and pick an assigned commodity.');
       return;
@@ -79,11 +128,14 @@ export default function InspectConfirmScreen() {
             <MaterialIcons name="verified" size={22} color={Colors.primary} />
             <View style={{ flex: 1, marginLeft: Spacing.sm }}>
               <Text style={[Typography.bodyLarge, { fontWeight: '700' }]}>
-                {brandName ? `${brandName} · ` : ''}{assignment?.commodity_name ?? 'Select an item'}
+                {assignment
+                  ? `${brandName ? `${brandName} · ` : ''}${assignment.commodity_name}`
+                  : pendingMeta?.title ?? 'Pending inspection'}
               </Text>
               <Text style={[Typography.labelSmall, { color: Colors.textSecondary }]}>
-                {assignment?.commodity_barcode || 'No barcode'}
-                {assignment?.due_date ? `  ·  Due ${assignment.due_date}` : ''}
+                {assignment
+                  ? `${assignment.commodity_barcode || 'No barcode'}${assignment.due_date ? `  ·  Due ${assignment.due_date}` : ''}`
+                  : pendingMeta?.subtitle ?? `Finishing ${pendingInspectionId?.slice(0, 8) ?? ''}`}
               </Text>
             </View>
           </View>

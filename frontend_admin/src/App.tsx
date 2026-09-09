@@ -24,7 +24,13 @@ import { ReviewDecisionValue } from './components/ReviewModal';
 import { CheckCircle, AlertTriangle } from 'lucide-react';
 
 export function App() {
-  const [currentTab, setCurrentTab] = useState('companies'); // Open Companies page directly
+  const [currentTab, setCurrentTab] = useState(
+    () => localStorage.getItem('checkmate_admin_tab') || 'dashboard',
+  );
+  const changeTab = (tab: string) => {
+    localStorage.setItem('checkmate_admin_tab', tab);
+    changeTab(tab);
+  };
   const [collapsed, setCollapsed] = useState(false);
   const [selectedInspectionDetail, setSelectedInspectionDetail] = useState<InspectionDetailRow | null>(null);
   const [reviewItem, setReviewItem] = useState<AIAnalysisItem | null>(null);
@@ -44,7 +50,7 @@ export function App() {
     setReviewItem(item);
     setIsReviewOpen(true);
     // Land the admin on the inspection record while the report modal opens
-    setCurrentTab('inspections');
+    changeTab('inspections');
     try {
       const rows = await fetchRepoRows();
       const match = rows.find((r) => r.inspection_id === item.id);
@@ -130,7 +136,7 @@ export function App() {
       <Sidebar
         currentTab={currentTab}
         onSelectTab={(tab) => {
-          setCurrentTab(tab);
+          changeTab(tab);
           setSelectedInspectionDetail(null);
         }}
         collapsed={collapsed}
@@ -181,13 +187,13 @@ export function App() {
 
               {/* 4. Bottom Row 3: 3 Column Highlights */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <HighRiskCompaniesCard onViewAll={() => setCurrentTab('companies')} />
-                <TopViolationsCard onViewAnalytics={() => setCurrentTab('analytics')} />
-                <OfficerWorkloadCard onManageOfficers={() => setCurrentTab('officers')} />
+                <HighRiskCompaniesCard onViewAll={() => changeTab('companies')} />
+                <TopViolationsCard onViewAnalytics={() => changeTab('analytics')} />
+                <OfficerWorkloadCard onManageOfficers={() => changeTab('officers')} />
               </div>
 
               {/* 5. Bottom Row 4: Recent Inspections Table */}
-              <RecentInspectionsTable onViewAll={() => setCurrentTab('inspections')} />
+              <RecentInspectionsTable onViewAll={() => changeTab('inspections')} />
             </>
           ) : currentTab === 'inspections' ? (
             /* Full Inspections List Table */
@@ -217,7 +223,7 @@ export function App() {
                 Live registry and analytical data for Legal Metrology & Packaged Commodity inspections in Maharashtra D4 jurisdiction.
               </p>
               <button
-                onClick={() => setCurrentTab('dashboard')}
+                onClick={() => changeTab('dashboard')}
                 className="bg-[#017374] hover:bg-[#015758] text-white text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-xs"
               >
                 Back to Dashboard
@@ -249,7 +255,7 @@ export function App() {
           const match = rows.find((r) => r.inspection_id === id);
           if (match) {
             setSelectedInspectionDetail(mapRepoRow(match));
-            setCurrentTab('inspections');
+            changeTab('inspections');
           } else {
             showToast(`Inspection ${id.slice(0, 8)} not found in the registry.`, 'warning');
           }

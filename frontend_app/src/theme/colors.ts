@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────
-// BlueTick Color Palette
+// Checkmate Color Palette
 // Ported 1:1 from Flutter AppColors
 // ─────────────────────────────────────────────────────────────
 
