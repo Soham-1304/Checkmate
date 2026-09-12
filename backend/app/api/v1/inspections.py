@@ -244,7 +244,7 @@ async def review_inspection(
     if not inspection:
         raise EntityNotFoundException("Inspection", inspection_id)
 
-    if inspection.status != "UNDER_REVIEW":
+    if inspection.status not in ["UNDER_REVIEW", "COMPLETED", "IN_PROGRESS"]:
         raise InvalidWorkflowStateException(inspection.status, "review")
 
     if payload.decision == "RETURNED_FOR_REVIEW":

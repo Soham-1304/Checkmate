@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Search, Star, MapPin, Clock, CheckCircle2, AlertCircle, Briefcase, Filter, Plus, Package, Check, Calendar, ArrowRight } from 'lucide-react';
-import { OFFICERS_DATA, OfficerRecord } from '../data/officersData';
+import { OfficerRecord } from '../types';
 import { useLiveOfficers } from '../api/useLiveData';
 import { OfficersIllustration } from './OfficersIllustration';
 import { AssignCommodityModal } from './AssignCommodityModal';
@@ -36,7 +36,7 @@ export const OfficersPage: React.FC<OfficersPageProps> = ({ onAddOfficer }) => {
   const [loadingAssignments, setLoadingAssignments] = useState(false);
   const [showAssignmentsTab, setShowAssignmentsTab] = useState(false);
 
-  const { data: liveOfficers } = useLiveOfficers(OFFICERS_DATA);
+  const { data: liveOfficers } = useLiveOfficers([]);
 
   const loadAssignments = async () => {
     setLoadingAssignments(true);

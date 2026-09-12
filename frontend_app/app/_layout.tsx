@@ -15,16 +15,11 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="index" />
-        <Stack.Screen name="onboarding" />
         <Stack.Screen name="login" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="scanner" options={{ animation: 'slide_from_bottom' }} />
-        <Stack.Screen name="processing/[id]" />
+        <Stack.Screen name="inspect-confirm" options={{ animation: 'slide_from_bottom' }} />
         <Stack.Screen name="analysis/[id]" />
-        <Stack.Screen name="compliance/[id]" />
-        <Stack.Screen name="alert-details/[id]" />
-        <Stack.Screen name="reports" />
-        <Stack.Screen name="standards/[id]" />
       </Stack>
     </>
   );

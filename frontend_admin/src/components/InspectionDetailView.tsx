@@ -13,7 +13,7 @@ import {
   FileText,
   ExternalLink,
 } from 'lucide-react';
-import { InspectionDetailRow } from '../data/inspectionsData';
+import { InspectionDetailRow } from '../types';
 import { useLiveInspectionDetail } from '../api/useLiveData';
 
 interface InspectionDetailViewProps {
@@ -283,7 +283,7 @@ export const InspectionDetailView: React.FC<InspectionDetailViewProps> = ({
 
             <div className="lg:col-span-4 flex flex-col justify-between gap-3">
               <button
-                onClick={() => onApprove(code)}
+                onClick={() => onApprove(backendId || code)}
                 className="flex-1 flex items-center gap-3 p-4 rounded-2xl bg-[#017374] hover:bg-[#015758] active:scale-[0.99] text-white transition-all shadow-sm text-left group"
               >
                 <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
@@ -296,7 +296,7 @@ export const InspectionDetailView: React.FC<InspectionDetailViewProps> = ({
               </button>
 
               <button
-                onClick={() => onRequestReinspection(code)}
+                onClick={() => onRequestReinspection(backendId || code)}
                 className="flex-1 flex items-center gap-3 p-4 rounded-2xl bg-[#E37820] hover:bg-[#c96414] active:scale-[0.99] text-white transition-all shadow-sm text-left group"
               >
                 <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
@@ -309,7 +309,7 @@ export const InspectionDetailView: React.FC<InspectionDetailViewProps> = ({
               </button>
 
               <button
-                onClick={() => onReject(code)}
+                onClick={() => onReject(backendId || code)}
                 className="flex-1 flex items-center gap-3 p-4 rounded-2xl bg-[#dc2626] hover:bg-[#b91c1c] active:scale-[0.99] text-white transition-all shadow-sm text-left group"
               >
                 <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">

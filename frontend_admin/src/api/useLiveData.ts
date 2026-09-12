@@ -16,6 +16,7 @@ export interface LiveTrendPoint {
 
 export interface LiveRecentRow {
   id: string;
+  backendId?: string;
   product: string;
   company: string;
   officer: string;
@@ -30,7 +31,7 @@ export function useLiveCompliance(fallback: LiveCompliance) {
   const [live, setLive] = useState(false);
   useEffect(() => {
     if (!isLiveConfigured()) return;
-    api<any>('/dashboard/admin?days=30')
+    api<any>('/dashboard/admin?days=60')
       .then((d) => {
         const c = d?.compliance ?? d?.compliance_summary ?? {};
         const pass = num(c.pass ?? c.compliant ?? c.PASS);
@@ -55,15 +56,15 @@ export function useLiveTrend(fallback: LiveTrendPoint[]) {
   const [live, setLive] = useState(false);
   useEffect(() => {
     if (!isLiveConfigured()) return;
-    api<any>('/dashboard/admin?days=30')
+    api<any>('/dashboard/admin?days=60')
       .then((d) => {
         const t = d?.trend ?? d?.inspections_trend ?? d?.volume_trend ?? [];
         if (Array.isArray(t) && t.length) {
           setData(
             t.map((p: any) => ({
               month: String(p.date ?? p.day ?? p.label ?? '').slice(5),
-              completed: num(p.count ?? p.completed ?? p.total),
-              flagged: num(p.fail_count ?? p.flagged ?? p.fails),
+              completed: num(p.completed ?? p.count ?? p.total),
+              flagged: num(p.flagged ?? p.fail_count ?? p.fails),
             })),
           );
           setLive(true);
@@ -86,6 +87,7 @@ export function useLiveRecent(fallback: LiveRecentRow[]) {
           setData(
             items.map((i: any) => ({
               id: String(i.id ?? i.inspection_id ?? '').slice(0, 8),
+              backendId: String(i.inspection_id ?? i.id ?? ''),
               product: i.commodity ?? i.generic_name ?? '—',
               company: i.brand ?? i.manufacturer ?? '—',
               officer: i.officer_name ?? i.officer ?? '—',
@@ -430,10 +432,7 @@ export function useLiveOfficerWorkload(fallback: LiveWorkloadItem[]) {
 // Live registry hooks (inspections list, companies, officers, AI decisions)
 // Live-with-mock-fallback pattern: same as the dashboard hooks above.
 // ---------------------------------------------------------------------------
-import { InspectionDetailRow } from '../data/inspectionsData';
-import { CompanyRegistryRow } from '../data/companiesData';
-import { OfficerRecord } from '../data/officersData';
-import { AIAnalysisItem } from '../types';
+import { InspectionDetailRow, CompanyRegistryRow, OfficerRecord, AIAnalysisItem } from '../types';
 import { ProductType } from '../components/ProductMockup';
 
 const AV_COLORS = ['#0284c7', '#ec4899', '#017374', '#E37820', '#7c3aed', '#059669'];

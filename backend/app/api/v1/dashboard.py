@@ -134,24 +134,41 @@ async def get_officer_dashboard(
 
 @router.get("/admin")
 async def get_admin_dashboard(
-    days: int = Query(30, ge=1, le=365),
+    days: int = Query(60, ge=1, le=365),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_capability("can_view_admin_kpis")),
 ):
     since = datetime.now(timezone.utc) - timedelta(days=days)
 
-    # 1. Volume trend (date_trunc day, zero-filled)
+    # 1. Volume trend with completed (PASS) and flagged (FAIL/REVIEW) counts by day
     trend_rows = (
         await db.execute(
-            select(func.date_trunc("day", Inspection.created_at).label("day"), func.count(Inspection.id))
+            select(
+                func.date_trunc("day", Inspection.created_at).label("day"),
+                func.count(Inspection.id).label("total"),
+                func.sum(case((Inspection.compliance_result == "PASS", 1), else_=0)).label("completed"),
+                func.sum(case((Inspection.compliance_result.in_(["FAIL", "REVIEW"]), 1), else_=0)).label("flagged"),
+            )
             .where(Inspection.created_at >= since)
             .group_by("day")
             .order_by("day")
         )
     ).all()
-    by_day = {r[0].date().isoformat(): r[1] for r in trend_rows}
+    by_day = {
+        r[0].date().isoformat(): {
+            "total": r[1],
+            "completed": int(r[2] or 0),
+            "flagged": int(r[3] or 0),
+        }
+        for r in trend_rows
+    }
     volume_trend = [
-        {"date": (since + timedelta(days=i)).date().isoformat(), "count": by_day.get((since + timedelta(days=i)).date().isoformat(), 0)}
+        {
+            "date": (since + timedelta(days=i)).date().isoformat(),
+            "count": by_day.get((since + timedelta(days=i)).date().isoformat(), {}).get("total", 0),
+            "completed": by_day.get((since + timedelta(days=i)).date().isoformat(), {}).get("completed", 0),
+            "flagged": by_day.get((since + timedelta(days=i)).date().isoformat(), {}).get("flagged", 0),
+        }
         for i in range(days + 1)
     ]
 

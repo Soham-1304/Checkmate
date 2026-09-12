@@ -50,12 +50,23 @@ export const AppDrawer: React.FC<AppDrawerProps> = ({ onClose }) => {
   const pathname = usePathname();
   const user = useAuthStore((state) => state.user);
 
+  const logout = useAuthStore((state) => state.logout);
+
   const navigate = (path: string) => {
     onClose();
     router.push(path as any);
   };
 
-  const displayName = user?.name || 'Aarav Verma';
+  const handleLogout = async () => {
+    onClose();
+    try {
+      await logout();
+    } catch {}
+    router.replace('/login');
+  };
+
+  const displayName = user?.name || 'Inspector';
+  const displayRole = user?.role ? user.role.replace('_', ' ') : 'Inspector';
   const initial = displayName.charAt(0).toUpperCase();
 
   return (
@@ -67,7 +78,7 @@ export const AppDrawer: React.FC<AppDrawerProps> = ({ onClose }) => {
         </View>
         <View style={styles.headerInfo}>
           <Text style={[Typography.titleMedium, { color: Colors.textInverse }]}>{displayName}</Text>
-          <Text style={[Typography.labelMedium, { color: 'rgba(255,255,255,0.8)' }]}>Inspector</Text>
+          <Text style={[Typography.labelMedium, { color: 'rgba(255,255,255,0.8)' }]}>{displayRole}</Text>
         </View>
         <Pressable onPress={onClose} style={{ padding: 8 }}>
           <MaterialIcons name="close" size={24} color={Colors.textInverse} />
@@ -79,15 +90,14 @@ export const AppDrawer: React.FC<AppDrawerProps> = ({ onClose }) => {
         <DrawerItem icon="dashboard" title="Dashboard" isActive={pathname === '/'} onPress={() => navigate('/(tabs)')} />
         <DrawerItem icon="history" title="Inspections" isActive={pathname === '/inspections'} onPress={() => navigate('/(tabs)/inspections')} />
         <DrawerItem icon="menu-book" title="Standards" isActive={pathname === '/standards'} onPress={() => navigate('/standards')} />
-        <DrawerItem icon="business" title="Entities" onPress={() => navigate('/entities')} />
-        <DrawerItem icon="insert-chart" title="Reports" isActive={pathname === '/alerts'} onPress={() => navigate('/(tabs)/alerts')} />
-        <DrawerItem icon="notifications-none" title="Notifications" onPress={() => navigate('/notifications')} />
-        <DrawerItem icon="settings" title="Settings" onPress={() => navigate('/settings')} />
-        <DrawerItem icon="help-outline" title="Help & Support" onPress={() => navigate('/help')} />
+        <DrawerItem icon="business" title="Entities" isActive={pathname === '/entities'} onPress={() => navigate('/entities')} />
+        <DrawerItem icon="notifications-none" title="Notifications" isActive={pathname === '/notifications'} onPress={() => navigate('/notifications')} />
+        <DrawerItem icon="settings" title="Settings" isActive={pathname === '/settings'} onPress={() => navigate('/settings')} />
+        <DrawerItem icon="help-outline" title="Help & Support" isActive={pathname === '/help'} onPress={() => navigate('/help')} />
 
         <View style={styles.divider} />
 
-        <DrawerItem icon="logout" title="Logout" iconColor={Colors.accent} textColor={Colors.accent} onPress={() => navigate('/login')} />
+        <DrawerItem icon="logout" title="Logout" iconColor={Colors.accent} textColor={Colors.accent} onPress={handleLogout} />
       </ScrollView>
 
       {/* Bottom Decoration */}

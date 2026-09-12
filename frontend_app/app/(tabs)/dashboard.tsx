@@ -126,7 +126,7 @@ export default function DashboardScreen() {
             </View>
 
             <InspectionTrendChart currentTotal={total} />
-            <InspectionActivityTimeline />
+            <InspectionActivityTimeline activity={activity} />
           </>
         )}
       </ScrollView>

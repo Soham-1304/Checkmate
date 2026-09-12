@@ -171,3 +171,53 @@ export const fetchReport = async (inspectionId: string): Promise<{ file_url: str
 
 export const fetchOfficerDashboard = async (): Promise<OfficerDashboard> =>
   (await apiClient.get(Endpoints.officerDashboard)).data;
+
+export interface BusinessEntity {
+  id: string;
+  legal_name: string;
+  type: string;
+  address?: string | null;
+  state?: string | null;
+  pincode?: string | null;
+  gstin?: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+export const fetchEntities = async (q?: string, type?: string): Promise<BusinessEntity[]> => {
+  const params: Record<string, string> = {};
+  if (q) params.q = q;
+  if (type) params.type = type;
+  const { data } = await apiClient.get('/entities', { params });
+  return Array.isArray(data) ? data : data.items ?? [];
+};
+
+export interface Requirement {
+  id: string;
+  field_definition_id: string;
+  clause: string;
+  is_mandatory: boolean;
+  min_font_height_mm?: number | null;
+  contrast_required: boolean;
+  clearance_required: boolean;
+  requires_principal_display: boolean;
+  created_at?: string;
+}
+
+export interface RuleSetDetail {
+  id: string;
+  version: string;
+  description: string;
+  is_active: boolean;
+  effective_at?: string | null;
+  requirements_count: number;
+  requirements: Requirement[];
+}
+
+export const fetchActiveRuleSet = async (): Promise<RuleSetDetail> =>
+  (await apiClient.get('/rule-sets/active')).data;
+
+export const fetchRuleSets = async (): Promise<RuleSetDetail[]> => {
+  const { data } = await apiClient.get('/rule-sets');
+  return Array.isArray(data) ? data : [];
+};

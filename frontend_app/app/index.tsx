@@ -3,6 +3,7 @@ import { View, Text, Animated, StyleSheet, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Typography } from '../src/theme';
+import { useAuthStore } from '../src/store/authStore';
 
 const LOGO = require('../assets/logo-mark.png');
 
@@ -20,8 +21,22 @@ export default function SplashScreen() {
       ])
     ).start();
 
-    // Navigate immediately without delay
-    router.replace('/login');
+    let mounted = true;
+    (async () => {
+      try {
+        const authed = await useAuthStore.getState().checkAuth();
+        if (!mounted) return;
+        if (authed) {
+          router.replace('/(tabs)');
+        } else {
+          router.replace('/login');
+        }
+      } catch {
+        if (mounted) router.replace('/login');
+      }
+    })();
+
+    return () => { mounted = false; };
   }, []);
 
   return (

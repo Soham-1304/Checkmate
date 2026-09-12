@@ -6,27 +6,29 @@ import { MaterialIcons } from '@expo/vector-icons';
 
 interface InspectionTrendChartProps {
   currentTotal: number;
+  dataPoints?: number[];
+  dates?: string[];
 }
 
-export const InspectionTrendChart: React.FC<InspectionTrendChartProps> = ({ currentTotal }) => {
+export const InspectionTrendChart: React.FC<InspectionTrendChartProps> = ({
+  currentTotal,
+  dataPoints: customDataPoints,
+  dates: customDates,
+}) => {
   const [timeframe, setTimeframe] = useState('This Month');
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const chartHeight = 160;
   const chartWidth = 300; // Will be responsive with 100% width, but we use a viewBox
   
-  // Create 7 data points leading up to currentTotal to simulate real-time historical data
-  const dataPoints = [
-    Math.floor(currentTotal * 0.1),
-    Math.floor(currentTotal * 0.3),
-    Math.floor(currentTotal * 0.2), // slight dip
-    Math.floor(currentTotal * 0.5),
-    Math.floor(currentTotal * 0.7),
-    Math.floor(currentTotal * 0.8),
-    currentTotal // Today's actual real-time value
-  ];
+  // Real data points: if no custom data is provided, show 0 or actual total distribution without fake multipliers
+  const dataPoints = customDataPoints && customDataPoints.length === 7
+    ? customDataPoints
+    : currentTotal === 0
+      ? [0, 0, 0, 0, 0, 0, 0]
+      : [0, 0, 0, 0, 0, 0, currentTotal];
 
-  const maxVal = Math.max(...dataPoints, 600); // Scale to at least 600 like the image, or higher if total exceeds it
+  const maxVal = Math.max(...dataPoints, 10);
   const yAxisLabels = [maxVal, Math.floor(maxVal * 0.75), Math.floor(maxVal * 0.5), Math.floor(maxVal * 0.25), 0];
 
   // Map data to SVG coordinates
@@ -48,18 +50,20 @@ export const InspectionTrendChart: React.FC<InspectionTrendChartProps> = ({ curr
 
   // Generate X-axis dates based on timeframe
   const today = new Date();
-  const dates = [];
-  for(let i=6; i>=0; i--) {
-    const d = new Date(today);
-    if (timeframe === 'This Week') {
-      d.setDate(today.getDate() - i);
-      dates.push(d.toLocaleString('default', { weekday: 'short' }));
-    } else if (timeframe === 'This Month') {
-      d.setDate(today.getDate() - (i * 5));
-      dates.push(`${d.getDate().toString().padStart(2, '0')} ${d.toLocaleString('default', { month: 'short' })}`);
-    } else if (timeframe === 'This Year') {
-      d.setMonth(today.getMonth() - (i * 2));
-      dates.push(d.toLocaleString('default', { month: 'short' }));
+  const dates = customDates && customDates.length === 7 ? customDates : [];
+  if (dates.length === 0) {
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      if (timeframe === 'This Week') {
+        d.setDate(today.getDate() - i);
+        dates.push(d.toLocaleString('default', { weekday: 'short' }));
+      } else if (timeframe === 'This Month') {
+        d.setDate(today.getDate() - (i * 5));
+        dates.push(`${d.getDate().toString().padStart(2, '0')} ${d.toLocaleString('default', { month: 'short' })}`);
+      } else if (timeframe === 'This Year') {
+        d.setMonth(today.getMonth() - (i * 2));
+        dates.push(d.toLocaleString('default', { month: 'short' }));
+      }
     }
   }
 

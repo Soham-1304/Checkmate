@@ -152,6 +152,7 @@ async def search_repository(
 
 
 @router.get("/export")
+@router.get("/export/csv")
 async def export_repository(
     brand: Optional[str] = None,
     manufacturer: Optional[str] = None,

@@ -6,6 +6,7 @@ import { Colors, Typography, Spacing, Radius } from '../../src/theme';
 import { useAuthStore } from '../../src/store/authStore';
 import { useRouter } from 'expo-router';
 import { AppDrawer } from '../../src/components/AppDrawer';
+import { useInspectStore } from '../../src/store/inspectStore';
 import { fetchOfficerDashboard, fetchCommodities, OfficerDashboard, Commodity } from '../../src/api/doca';
 
 export default function HomeScreen() {
@@ -13,7 +14,6 @@ export default function HomeScreen() {
   const router = useRouter();
 
   const [isDrawerVisible, setDrawerVisible] = useState(false);
-  const [notificationCount] = useState(0);
   const [selectedPeriod, setSelectedPeriod] = useState('This Month');
   const [showDropdown, setShowDropdown] = useState(false);
 
@@ -50,14 +50,22 @@ export default function HomeScreen() {
     setShowDropdown(false);
   };
 
+  const notificationCount = dashboard?.my_pending_assignments ?? 0;
+
   const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 1,
-    });
-    if (!result.canceled) {
-      Alert.alert('Upload Started', 'Use the Scanner tab to run a full inspection with this image.');
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets && result.assets[0]?.uri) {
+        useInspectStore.getState().reset();
+        useInspectStore.getState().addPhotos([result.assets[0].uri]);
+        router.push('/scanner');
+      }
+    } catch {
+      Alert.alert('Upload Error', 'Could not access the image library.');
     }
   };
 

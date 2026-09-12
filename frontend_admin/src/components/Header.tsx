@@ -1,5 +1,6 @@
-import React from 'react';
-import { Search, Bell, Plus, Download, ChevronDown } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Search, Bell, Plus, Download, ChevronDown, LogOut, ShieldCheck, User as UserIcon } from 'lucide-react';
+import { triggerSignOut } from './LoginGate';
 
 interface HeaderProps {
   currentTab: string;
@@ -18,8 +19,53 @@ export const Header: React.FC<HeaderProps> = ({
   onAddOfficer,
   notificationCount = 3,
 }) => {
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
   const isCompaniesTab = currentTab === 'companies';
   const isOfficersTab = currentTab === 'officers';
+
+  const adminName = localStorage.getItem('doca_admin_name') || 'Checkmate Admin';
+  const adminRole = localStorage.getItem('doca_admin_role') || 'Admin';
+  const initials =
+    adminName
+      .split(' ')
+      .map((w) => w[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join('') || 'DA';
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setProfileDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleExportCsv = async () => {
+    try {
+      const BASE = (import.meta as any).env?.VITE_API_BASE_URL ?? 'http://localhost:8000/api/v1';
+      const authToken = localStorage.getItem('doca_admin_token') || '';
+      const res = await fetch(`${BASE}/repository/export/csv`, {
+        headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+      });
+      if (!res.ok) throw new Error(`Export failed (${res.status})`);
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `doca_inspections_export_${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(err?.message || 'Failed to download CSV export.');
+    }
+  };
 
   return (
     <header className="px-8 pt-6 pb-2 flex items-center justify-between transition-all">
@@ -46,56 +92,17 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Right Controls */}
-      <div className="flex items-center gap-5">
-        {/* Notification Bell */}
-        <button
-          className="relative p-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition-colors"
-          title="Notifications"
-        >
-          <Bell className="w-4 h-4" />
-          {notificationCount > 0 && (
-            <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-[#E37820] text-white text-[9px] font-bold rounded-full flex items-center justify-center ring-2 ring-white">
-              {notificationCount}
-            </span>
-          )}
-        </button>
-
-        {/* Date & Time display */}
-        <div className="hidden lg:block text-xs font-medium text-slate-500">
-          {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} • {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-        </div>
-
-        {/* User Info */}
-        {(() => {
-          const adminName = localStorage.getItem('doca_admin_name') || 'Checkmate Admin';
-          const adminRole = localStorage.getItem('doca_admin_role') || 'Admin';
-          const initials = adminName.split(' ').map((w) => w[0]).filter(Boolean).slice(0, 2).join('') || 'DA';
-          return (
-            <div
-              className="flex items-center gap-2.5 cursor-pointer group"
-              title="Signed in as Administrator"
-            >
-              <div className="w-8 h-8 rounded-full bg-[#017374] text-white flex items-center justify-center font-bold text-xs shadow-xs">
-                {initials}
-              </div>
-              <div className="hidden md:block text-left">
-                <div className="text-xs font-bold text-slate-800 leading-tight">{adminName}</div>
-                <div className="text-[11px] text-[#017374] font-semibold leading-tight capitalize">{adminRole.toLowerCase()}</div>
-              </div>
-            </div>
-          );
-        })()}
-
+      <div className="flex items-center gap-4">
         {/* Export Button */}
         <button
-          onClick={() => alert(`Exporting ${isCompaniesTab ? 'companies registry' : 'inspections'} report...`)}
+          onClick={handleExportCsv}
           className="hidden sm:flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-200/80 text-slate-700 px-3.5 py-2 rounded-xl text-xs font-semibold shadow-2xs transition-all"
         >
           <Download className="w-3.5 h-3.5 text-slate-500" />
-          <span>Export</span>
+          <span>Export CSV</span>
         </button>
 
-        {/* + Add Company / + Add Officer / + New Inspection CTA Button */}
+        {/* Action CTA Button */}
         {isCompaniesTab ? (
           <button
             onClick={onAddCompany || onOpenNewInspection}
@@ -121,6 +128,80 @@ export const Header: React.FC<HeaderProps> = ({
             <span>New Inspection</span>
           </button>
         )}
+
+        {/* Notification Bell */}
+        <button
+          className="relative p-2 rounded-xl bg-white border border-slate-200/80 text-slate-600 hover:text-slate-900 transition-colors shadow-2xs"
+          title="Notifications"
+        >
+          <Bell className="w-4 h-4" />
+          {notificationCount > 0 && (
+            <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#E37820] text-white text-[9px] font-bold rounded-full flex items-center justify-center ring-2 ring-white shadow-xs">
+              {notificationCount}
+            </span>
+          )}
+        </button>
+
+        {/* Vertical Divider */}
+        <div className="h-6 w-px bg-slate-200 hidden md:block" />
+
+        {/* Far-Right Profile Dropdown Pill */}
+        <div className="relative" ref={dropdownRef}>
+          <button
+            onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+            className="flex items-center gap-2.5 p-1.5 pr-3 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200/80 transition-all shadow-2xs group focus:outline-none"
+            title="Account settings & profile"
+          >
+            <div className="w-8 h-8 rounded-full bg-[#017374] text-white flex items-center justify-center font-bold text-xs shadow-xs">
+              {initials}
+            </div>
+            <div className="hidden md:block text-left">
+              <div className="text-xs font-bold text-slate-800 leading-tight group-hover:text-[#017374] transition-colors">
+                {adminName}
+              </div>
+              <div className="text-[10px] text-slate-400 font-semibold leading-tight capitalize">
+                {adminRole.toLowerCase()}
+              </div>
+            </div>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700 transition-transform duration-200" />
+          </button>
+
+          {/* Dropdown Menu */}
+          {profileDropdownOpen && (
+            <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+              <div className="px-4 py-2.5 border-b border-slate-100">
+                <p className="text-xs font-bold text-slate-800">{adminName}</p>
+                <p className="text-[11px] text-slate-400 font-medium truncate">admin@doca.gov.in</p>
+                <div className="mt-1.5 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+                    Active Authority
+                  </span>
+                </div>
+              </div>
+
+              <div className="py-1">
+                <div className="px-4 py-1.5 text-[11px] font-medium text-slate-500 flex items-center gap-2">
+                  <ShieldCheck className="w-3.5 h-3.5 text-[#017374]" />
+                  <span>Enforcement Role: {adminRole}</span>
+                </div>
+              </div>
+
+              <div className="border-t border-slate-100 pt-1">
+                <button
+                  onClick={() => {
+                    setProfileDropdownOpen(false);
+                    triggerSignOut();
+                  }}
+                  className="w-full flex items-center gap-2 px-4 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Sign out</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );

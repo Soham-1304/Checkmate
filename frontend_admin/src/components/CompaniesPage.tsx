@@ -16,7 +16,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { CompaniesIllustration } from './CompaniesIllustration';
-import { COMPANIES_REGISTRY_DATA, CompanyRegistryRow } from '../data/companiesData';
+import { CompanyRegistryRow } from '../types';
 import { useLiveCompanies } from '../api/useLiveData';
 
 interface CompaniesPageProps {
@@ -39,7 +39,7 @@ export const CompaniesPage: React.FC<CompaniesPageProps> = ({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
 
-  const { data: liveCompanies } = useLiveCompanies(COMPANIES_REGISTRY_DATA);
+  const { data: liveCompanies } = useLiveCompanies([]);
 
   // Dynamic filter options based on available data
   const categories = useMemo(() => {

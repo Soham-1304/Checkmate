@@ -7,7 +7,7 @@ from sqlalchemy.orm import selectinload
 from app.core.exceptions import EntityNotFoundException
 from app.deps import get_current_user, get_db, require_capability
 from app.models.compliance import AuditEvent
-from app.models.master_data import Brand, BusinessEntity, Commodity
+from app.models.master_data import Brand, BusinessEntity, Commodity, FieldDefinition
 from app.models.user import User
 from app.schemas.masters import (
     BrandCreate,
@@ -20,6 +20,7 @@ from app.schemas.masters import (
     EntityCreate,
     EntityOut,
     EntityUpdate,
+    FieldDefinitionOut,
 )
 
 router = APIRouter(tags=["Master Data"])
@@ -273,3 +274,14 @@ async def update_commodity(commodity_id: UUID, payload: CommodityUpdate, db: Asy
     await db.commit()
     c = (await db.execute(select(Commodity).options(selectinload(Commodity.brand), selectinload(Commodity.business_entity)).where(Commodity.id == c.id))).scalar_one()
     return _commodity_out(c)
+
+
+# ---------- Field Definitions ----------
+
+@router.get("/field-definitions", response_model=List[FieldDefinitionOut])
+async def list_field_definitions(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    stmt = select(FieldDefinition).order_by(FieldDefinition.display_name)
+    return (await db.execute(stmt)).scalars().all()

@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { InspectorIllustration } from './InspectorIllustration';
 import { ProductMockup } from './ProductMockup';
-import { InspectionDetailRow } from '../data/inspectionsData';
+import { InspectionDetailRow } from '../types';
 import { useLiveInspections } from '../api/useLiveData';
 
 interface InspectionsPageProps {

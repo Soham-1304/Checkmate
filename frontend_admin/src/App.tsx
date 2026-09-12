@@ -13,13 +13,18 @@ import { InspectionsPage } from './components/InspectionsPage';
 import { InspectionDetailView } from './components/InspectionDetailView';
 import { CompaniesPage } from './components/CompaniesPage';
 import { OfficersPage } from './components/OfficersPage';
+import { ViolationsPage } from './components/ViolationsPage';
+import { AnalyticsPage } from './components/AnalyticsPage';
+import { ReportsPage } from './components/ReportsPage';
+import { AuditLogPage } from './components/AuditLogPage';
+import { SettingsPage } from './components/SettingsPage';
 import { ReviewModal } from './components/ReviewModal';
 import { NewInspectionModal } from './components/NewInspectionModal';
 import { SearchModal } from './components/SearchModal';
-import { AIAnalysisItem } from './types';
-import { InspectionDetailRow } from './data/inspectionsData';
-import { CompanyRegistryRow } from './data/companiesData';
-import { mapRepoRow, fetchRepoRows } from './api/useLiveData';
+import { AddCompanyModal } from './components/AddCompanyModal';
+import { AddOfficerModal } from './components/AddOfficerModal';
+import { AIAnalysisItem, InspectionDetailRow, CompanyRegistryRow } from './types';
+import { mapRepoRow, fetchRepoRows, useLiveInspections } from './api/useLiveData';
 import { ReviewDecisionValue } from './components/ReviewModal';
 import { CheckCircle, AlertTriangle } from 'lucide-react';
 
@@ -29,15 +34,29 @@ export function App() {
   );
   const changeTab = (tab: string) => {
     localStorage.setItem('checkmate_admin_tab', tab);
-    changeTab(tab);
+    setCurrentTab(tab);
   };
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(
+    () => localStorage.getItem('checkmate_sidebar_collapsed') === 'true',
+  );
+  const toggleCollapse = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem('checkmate_sidebar_collapsed', String(next));
+      return next;
+    });
+  };
   const [selectedInspectionDetail, setSelectedInspectionDetail] = useState<InspectionDetailRow | null>(null);
   const [reviewItem, setReviewItem] = useState<AIAnalysisItem | null>(null);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [isNewInspectionOpen, setIsNewInspectionOpen] = useState(false);
+  const [isAddCompanyOpen, setIsAddCompanyOpen] = useState(false);
+  const [isAddOfficerOpen, setIsAddOfficerOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'warning' } | null>(null);
+
+  const { data: liveInspectionsList } = useLiveInspections();
+  const pendingCount = liveInspectionsList.filter((i) => i.status === 'Pending' || i.status === 'AI Review').length;
 
   const showToast = (text: string, type: 'success' | 'warning' = 'success') => {
     setToastMessage({ text, type });
@@ -46,10 +65,37 @@ export function App() {
     }, 4000);
   };
 
+  const handleOpenInspectionById = async (backendId: string) => {
+    try {
+      const rows = await fetchRepoRows();
+      const match = rows.find((r) => r.inspection_id === backendId);
+      if (match) {
+        setSelectedInspectionDetail(mapRepoRow(match));
+      } else {
+        const found = liveInspectionsList.find((i) => i.backendId === backendId || i.shortId === backendId);
+        if (found) {
+          setSelectedInspectionDetail({
+            id: found.shortId,
+            backendId: found.backendId,
+            product: { name: found.productName, category: found.category, mockupType: found.mockupType as any },
+            company: { name: found.brandName, industry: '' },
+            officer: { name: found.officerName, initials: found.officerInitials },
+            dateTime: found.dateTime,
+            compliance: found.compliance,
+            aiFinding: { confidence: found.aiConfidence, description: found.aiDescription },
+            status: found.status,
+          });
+        }
+      }
+      changeTab('inspections');
+    } catch {
+      showToast('Could not load inspection record.', 'warning');
+    }
+  };
+
   const handleReviewItem = async (item: AIAnalysisItem) => {
     setReviewItem(item);
     setIsReviewOpen(true);
-    // Land the admin on the inspection record while the report modal opens
     changeTab('inspections');
     try {
       const rows = await fetchRepoRows();
@@ -70,7 +116,7 @@ export function App() {
       });
       showToast(okMsg, 'success');
       setSelectedInspectionDetail((prev) =>
-        prev && prev.id === id
+        prev && (prev.id === id || prev.backendId === id)
           ? {
               ...prev,
               status:
@@ -115,15 +161,18 @@ export function App() {
   };
 
   const handleNewInspectionSubmit = (data: any) => {
-    showToast(`New inspection for "${data.productName}" added to AI verification queue!`, 'success');
+    showToast(`Inspection ${data.shortId || ''} created and evaluated!`, 'success');
+    if (data.id) {
+      handleOpenInspectionById(data.id);
+    }
   };
 
   const handleAddCompany = () => {
-    showToast('Add Company form opened for Legal Metrology registry onboarding.', 'success');
+    setIsAddCompanyOpen(true);
   };
 
   const handleAddOfficer = () => {
-    showToast('Add Officer form opened for District 4 field officer onboarding.', 'success');
+    setIsAddOfficerOpen(true);
   };
 
   const handleSelectCompany = (company: CompanyRegistryRow) => {
@@ -131,8 +180,8 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#edf3f1] text-slate-800 flex font-sans antialiased selection:bg-[#017374] selection:text-white">
-      {/* Sidebar Navigation (No Products in Registry) */}
+    <div className="h-screen bg-[#edf3f1] text-slate-800 flex font-sans antialiased selection:bg-[#017374] selection:text-white overflow-hidden">
+      {/* Sidebar Navigation */}
       <Sidebar
         currentTab={currentTab}
         onSelectTab={(tab) => {
@@ -140,12 +189,12 @@ export function App() {
           setSelectedInspectionDetail(null);
         }}
         collapsed={collapsed}
-        onToggleCollapse={() => setCollapsed(!collapsed)}
-        inspectionBadgeCount={12}
+        onToggleCollapse={toggleCollapse}
+        inspectionBadgeCount={pendingCount || undefined}
       />
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      {/* Main Content Area (scrolls independently) */}
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
         {/* Top Navbar */}
         <Header
           currentTab={currentTab}
@@ -153,10 +202,10 @@ export function App() {
           onOpenNewInspection={() => setIsNewInspectionOpen(true)}
           onAddCompany={handleAddCompany}
           onAddOfficer={handleAddOfficer}
-          notificationCount={3}
+          notificationCount={pendingCount}
         />
 
-        {/* Dashboard / Inspections / Companies Content Container */}
+        {/* Dynamic Main View */}
         <main className="flex-1 px-8 py-4 space-y-6 max-w-[1540px] w-full">
           {selectedInspectionDetail ? (
             /* Detailed AI Packaging Inspection View */
@@ -188,12 +237,15 @@ export function App() {
               {/* 4. Bottom Row 3: 3 Column Highlights */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <HighRiskCompaniesCard onViewAll={() => changeTab('companies')} />
-                <TopViolationsCard onViewAnalytics={() => changeTab('analytics')} />
+                <TopViolationsCard onViewAnalytics={() => changeTab('violations')} />
                 <OfficerWorkloadCard onManageOfficers={() => changeTab('officers')} />
               </div>
 
               {/* 5. Bottom Row 4: Recent Inspections Table */}
-              <RecentInspectionsTable onViewAll={() => changeTab('inspections')} />
+              <RecentInspectionsTable
+                onViewAll={() => changeTab('inspections')}
+                onSelectInspection={(backendId) => handleOpenInspectionById(backendId)}
+              />
             </>
           ) : currentTab === 'inspections' ? (
             /* Full Inspections List Table */
@@ -210,24 +262,24 @@ export function App() {
           ) : currentTab === 'officers' ? (
             /* Officers Registry Page */
             <OfficersPage onAddOfficer={handleAddOfficer} />
+          ) : currentTab === 'violations' ? (
+            /* Statutory Violations Page */
+            <ViolationsPage />
+          ) : currentTab === 'analytics' ? (
+            /* Analytics Page */
+            <AnalyticsPage />
+          ) : currentTab === 'reports' ? (
+            /* Reports & PDF/CSV Archive */
+            <ReportsPage onSelectInspection={(backendId) => handleOpenInspectionById(backendId)} />
+          ) : currentTab === 'audit-log' ? (
+            /* Immutable Audit Log */
+            <AuditLogPage />
+          ) : currentTab === 'settings' ? (
+            /* System Settings & Rule Sets */
+            <SettingsPage />
           ) : (
-            /* Sub-page placeholder views */
-            <div className="bg-white rounded-3xl p-12 border border-slate-200/80 shadow-xs min-h-[500px] flex flex-col items-center justify-center text-center space-y-4">
-              <div className="w-14 h-14 rounded-2xl bg-[#017374]/10 text-[#017374] flex items-center justify-center font-bold text-xl">
-                {currentTab.toUpperCase().slice(0, 2)}
-              </div>
-              <h2 className="text-xl font-bold text-slate-800 capitalize">
-                {currentTab.replace('-', ' ')} Module
-              </h2>
-              <p className="text-xs text-slate-500 max-w-md">
-                Live registry and analytical data for Legal Metrology & Packaged Commodity inspections in Maharashtra D4 jurisdiction.
-              </p>
-              <button
-                onClick={() => changeTab('dashboard')}
-                className="bg-[#017374] hover:bg-[#015758] text-white text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-xs"
-              >
-                Back to Dashboard
-              </button>
+            <div className="py-20 text-center text-xs text-slate-500">
+              Module loading...
             </div>
           )}
         </main>
@@ -247,19 +299,23 @@ export function App() {
         onSubmitInspection={handleNewInspectionSubmit}
       />
 
+      <AddCompanyModal
+        isOpen={isAddCompanyOpen}
+        onClose={() => setIsAddCompanyOpen(false)}
+        onSuccess={(msg) => showToast(msg, 'success')}
+      />
+
+      <AddOfficerModal
+        isOpen={isAddOfficerOpen}
+        onClose={() => setIsAddOfficerOpen(false)}
+        onSuccess={(msg) => showToast(msg, 'success')}
+      />
+
       <SearchModal
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
-        onSelectInspection={async (id) => {
-          const rows = await fetchRepoRows();
-          const match = rows.find((r) => r.inspection_id === id);
-          if (match) {
-            setSelectedInspectionDetail(mapRepoRow(match));
-            changeTab('inspections');
-          } else {
-            showToast(`Inspection ${id.slice(0, 8)} not found in the registry.`, 'warning');
-          }
-        }}
+        onSelectInspection={(id) => handleOpenInspectionById(id)}
+        onSelectCompany={() => changeTab('companies')}
       />
 
       {/* Action Notification Toast */}

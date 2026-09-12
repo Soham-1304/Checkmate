@@ -91,7 +91,7 @@ export default function InspectConfirmScreen() {
     }
     try {
       setBusy('Creating inspection…');
-      const inspection = await createInspection(assignment.commodity_id, assignment.id);
+      const inspection = await createInspection(assignment.commodity_id, assignment.id || undefined);
       for (let i = 0; i < photos.length; i++) {
         setBusy(`Uploading photo ${i + 1} of ${photos.length}…`);
         await uploadEvidence(inspection.id, photos[i], VIEW_TYPES[Math.min(i, VIEW_TYPES.length - 1)]);
@@ -168,9 +168,9 @@ export default function InspectConfirmScreen() {
 
       <View style={styles.footer}>
         <Pressable
-          style={[styles.inspectBtn, (!assignment || !photos.length) && styles.inspectBtnDisabled]}
+          style={[styles.inspectBtn, ((!assignment && !pendingInspectionId) || !photos.length) && styles.inspectBtnDisabled]}
           onPress={handleInspect}
-          disabled={!assignment || !photos.length}
+          disabled={(!assignment && !pendingInspectionId) || !photos.length}
         >
           <MaterialIcons name="fact-check" size={22} color="white" />
           <Text style={styles.inspectText}>INSPECT</Text>

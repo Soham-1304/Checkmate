@@ -4,6 +4,13 @@ import { isLiveConfigured } from '../api/client';
 
 const BASE = (import.meta as any).env?.VITE_API_BASE_URL ?? 'http://localhost:8000/api/v1';
 
+export function triggerSignOut() {
+  localStorage.removeItem('doca_admin_token');
+  localStorage.removeItem('doca_admin_name');
+  localStorage.removeItem('doca_admin_role');
+  window.dispatchEvent(new CustomEvent('doca-signout'));
+}
+
 export const LoginGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [authed, setAuthed] = useState(isLiveConfigured());
   const [email, setEmail] = useState('admin@doca.gov.in');
@@ -45,20 +52,14 @@ export const LoginGate: React.FC<{ children: React.ReactNode }> = ({ children })
     setPassword('');
   };
 
+  React.useEffect(() => {
+    const handleSignOut = () => signOut();
+    window.addEventListener('doca-signout', handleSignOut);
+    return () => window.removeEventListener('doca-signout', handleSignOut);
+  }, []);
+
   if (authed) {
-    return (
-      <div className="relative min-h-screen">
-        <button
-          onClick={signOut}
-          title={`Signed in — sign out`}
-          className="fixed bottom-4 left-4 z-40 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/90 backdrop-blur border border-slate-200 text-[11px] font-bold text-slate-500 hover:text-rose-600 hover:border-rose-200 transition-all shadow-xs"
-        >
-          <LogOut className="w-3.5 h-3.5" />
-          Sign out
-        </button>
-        {children}
-      </div>
-    );
+    return <>{children}</>;
   }
 
   return (

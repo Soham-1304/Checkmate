@@ -100,3 +100,15 @@ class CommodityOut(BaseModel):
 class CommodityListOut(BaseModel):
     commodities: List[CommodityOut]
     total: int
+
+
+class FieldDefinitionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    canonical_key: str
+    display_name: str
+    data_type: str
+    allowed_units: Optional[List[str]] = None
+    is_mandatory: bool
+    description: Optional[str] = None

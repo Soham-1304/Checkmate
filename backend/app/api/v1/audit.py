@@ -15,6 +15,7 @@ audit_guard = Depends(require_capability("can_view_audit"))
 
 
 @router.get("/audit-events", response_model=AuditEventListOut)
+@router.get("/audit/events", response_model=AuditEventListOut)
 async def list_audit_events(
     entity_type: Optional[str] = None,
     entity_id: Optional[UUID] = None,
