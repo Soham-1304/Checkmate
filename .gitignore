@@ -72,3 +72,8 @@ doca-ml-service/uploaded_images/*
 *.db
 *.sqlite
 *.sqlite3
+
+# Legacy / Prototype directories omitted from remote
+AI_ML/
+test_assets/real/
+
