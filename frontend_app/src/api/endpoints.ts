@@ -32,6 +32,8 @@ export const Endpoints = {
   evaluate: (id: string) => `/inspections/${id}/evaluate`,
   findings: (id: string) => `/inspections/${id}/findings`,
   report: (id: string) => `/inspections/${id}/report`,
+  reportPdf: (id: string) => `/inspections/${id}/report/pdf`,
+  reportDownload: (id: string) => `/inspections/${id}/report/download`,
   officerDashboard: '/dashboard/officer',
   commodities: '/commodities',
   commodityDetail: (id: string) => `/commodities/${id}`,

@@ -1,16 +1,13 @@
-# Render blueprint: single Docker web service (backend + in-process OCR).
-# Instance sizing: Starter (1GB) fits (~540MB OCR peak + backend), but Standard
-# (2GB) is recommended for demo safety — concurrent OCR + PDF render spikes.
-# The EasyOCR/torch worker is deliberately NOT in this image; it runs
-# off-server via the async PUT contract when needed.
+# Render blueprint: Checkmate AI - Legal Metrology Compliance Engine
+# Memory budget: Starter (1GB) with pool_size=3, single worker, supabase storage.
 services:
   - type: web
-    name: doca-backend
+    name: checkmate-backend
     runtime: docker
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    plan: standard # downgrade to starter only after load-testing YOUR packs
-    healthCheckPath: /api/v1/openapi.json
+    plan: starter
+    healthCheckPath: /health
     envVars:
       - key: DATABASE_URL
         sync: false # Supabase pooler URL
@@ -28,3 +25,6 @@ services:
         generateValue: true
       - key: BACKEND_CORS_ORIGINS
         sync: false # comma-separated: admin + officer-app origins
+      - key: ML_SERVICE_URL
+        sync: false # Optional: Standalone ML microservice URL (e.g. Hugging Face Spaces or Render Docker Service)
+

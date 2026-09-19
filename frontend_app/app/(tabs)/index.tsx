@@ -178,6 +178,32 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
+        {/* Actionable Pending Assignment Alert */}
+        {pendingAssignments > 0 && (
+          <Pressable
+            style={styles.pendingAlertBanner}
+            onPress={() => router.push('/(tabs)/inspections' as any)}
+          >
+            <View style={styles.pendingAlertLeft}>
+              <View style={styles.alertIconBadge}>
+                <MaterialIcons name="notification-important" size={20} color="#D97706" />
+              </View>
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text style={[Typography.titleSmall, { color: '#92400E', fontWeight: '700' }]}>
+                  {pendingAssignments} Assigned Commodit{pendingAssignments > 1 ? 'ies' : 'y'}
+                </Text>
+                <Text style={[Typography.bodySmall, { color: '#B45309', fontSize: 12 }]}>
+                  Tasks assigned by Department Admin awaiting inspection
+                </Text>
+              </View>
+            </View>
+            <View style={styles.alertActionBtn}>
+              <Text style={{ color: '#92400E', fontWeight: '700', fontSize: 12 }}>Inspect</Text>
+              <MaterialIcons name="chevron-right" size={16} color="#92400E" />
+            </View>
+          </Pressable>
+        )}
+
         {/* Overview Header */}
         <View style={[styles.overviewHeader, { zIndex: 10 }]}>
           <Text style={[Typography.titleLarge, { fontWeight: '700' }]}>Overview</Text>
@@ -207,11 +233,14 @@ export default function HomeScreen() {
           </View>
         ) : (
           <View style={styles.statsGrid}>
-            <View style={[styles.statBox, { backgroundColor: Colors.primary }]}>
+            <Pressable
+              style={[styles.statBox, { backgroundColor: Colors.primary }]}
+              onPress={() => router.push('/(tabs)/inspections' as any)}
+            >
               <MaterialIcons name="check-circle-outline" size={20} color={Colors.textInverse} />
               <Text style={[Typography.headlineMedium, { color: Colors.textInverse, marginTop: 8, marginBottom: 2 }]}>{totalChecked}</Text>
               <Text style={[Typography.labelSmall, { color: 'rgba(255,255,255,0.8)' }]}>Total</Text>
-            </View>
+            </Pressable>
 
             <View style={[styles.statBox, { backgroundColor: Colors.inProgress }]}>
               <MaterialIcons name="today" size={20} color={Colors.textPrimary} />
@@ -219,17 +248,23 @@ export default function HomeScreen() {
               <Text style={[Typography.labelSmall, { color: 'rgba(0,0,0,0.6)' }]}>Today</Text>
             </View>
 
-            <View style={[styles.statBox, { backgroundColor: Colors.nonCompliant }]}>
+            <Pressable
+              style={[styles.statBox, { backgroundColor: Colors.nonCompliant }]}
+              onPress={() => router.push('/(tabs)/inspections' as any)}
+            >
               <MaterialIcons name="assignment-late" size={20} color={Colors.textInverse} />
               <Text style={[Typography.headlineMedium, { color: Colors.textInverse, marginTop: 8, marginBottom: 2 }]}>{pendingAssignments}</Text>
               <Text style={[Typography.labelSmall, { color: 'rgba(255,255,255,0.8)' }]}>Pending</Text>
-            </View>
+            </Pressable>
 
-            <View style={[styles.statBox, { backgroundColor: Colors.successLight }]}>
+            <Pressable
+              style={[styles.statBox, { backgroundColor: Colors.successLight }]}
+              onPress={() => router.push('/(tabs)/inspections' as any)}
+            >
               <MaterialIcons name="verified-user" size={20} color={Colors.primary} />
               <Text style={[Typography.headlineMedium, { color: Colors.primary, marginTop: 8, marginBottom: 2 }]}>{completionPct}%</Text>
               <Text style={[Typography.labelSmall, { color: Colors.primary }]}>Done</Text>
-            </View>
+            </Pressable>
           </View>
         )}
 
@@ -407,6 +442,40 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: Radius.button,
     backgroundColor: 'rgba(255,255,255,0.15)',
+  },
+  pendingAlertBanner: {
+    marginHorizontal: Spacing.screenHorizontal,
+    marginTop: Spacing.md,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 16,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  pendingAlertLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  alertIconBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FDE68A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  alertActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FDE68A',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginLeft: 8,
   },
   overviewHeader: {
     flexDirection: 'row',

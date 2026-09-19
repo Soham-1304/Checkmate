@@ -107,6 +107,10 @@ class InspectionDetailOut(InspectionOut):
     evidence_items: List[EvidenceOut] = []
     declarations: List[DeclarationOut] = []
     findings: List[FindingOut] = []
+    visual_signals: Optional[Dict[str, Any]] = None
+    quality_signals: Optional[Dict[str, Any]] = None
+    barcode_signals: Optional[Dict[str, Any]] = None
+    pdp_area_cm2: Optional[float] = None
 
 
 class AnalyzeRequest(BaseModel):

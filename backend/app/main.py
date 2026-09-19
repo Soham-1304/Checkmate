@@ -28,15 +28,17 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS
-app.add_middleware(
-    CORSMiddleware,
+# CORS — localhost regex only in dev mode (STORAGE_BACKEND=local)
+_cors_kwargs: dict = dict(
     allow_origins=[str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
-    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+if settings.STORAGE_BACKEND == "local":
+    _cors_kwargs["allow_origin_regex"] = r"https?://(localhost|127\.0\.0\.1)(:\d+)?"
+
+app.add_middleware(CORSMiddleware, **_cors_kwargs)
 
 # Mount Static Uploads
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
@@ -49,6 +51,6 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 async def healthcheck():
     return {
         "status": "healthy",
-        "service": "doca-backend",
+        "service": "checkmate-backend",
         "rule_set_version": settings.ACTIVE_RULE_SET_VERSION,
     }

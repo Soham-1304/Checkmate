@@ -42,6 +42,7 @@ export interface Declaration {
   clearance_pass: boolean | null;
   script_language: string | null;
   is_corrected: boolean;
+  correction_reason?: string | null;
 }
 
 export interface Finding {
@@ -54,7 +55,7 @@ export interface Finding {
 }
 
 export interface InspectionDetail extends Inspection {
-  evidence_items: { id: string; file_url: string | null; view_type: string }[];
+  evidence_items: { id: string; file_url: string | null; view_type: string; pdp_area_cm2?: number | null }[];
   declarations: Declaration[];
   findings: Finding[];
 }
@@ -64,6 +65,7 @@ export interface OfficerDashboard {
   my_pending_assignments: number;
   my_completion_rate: number;
   my_total_inspections: number;
+  trend_7d?: { date: string; count: number }[];
   recent_activity: {
     id: string;
     status: string;
@@ -102,6 +104,8 @@ export interface Assignment {
   commodity_id: string;
   commodity_name: string;
   commodity_barcode?: string | null;
+  brand_name?: string | null;
+  commodity_category?: string | null;
   status: string;
   due_date?: string | null;
   notes?: string | null;
@@ -110,8 +114,14 @@ export interface Assignment {
 export const fetchMyChecklist = async (): Promise<Assignment[]> => {
   const { data } = await apiClient.get(Endpoints.myChecklist);
   const items = Array.isArray(data) ? data : data.items ?? data.assignments ?? [];
-  return items.filter((a: Assignment) => a.status === 'ASSIGNED');
+  return items.filter((a: Assignment) => a.status === 'ASSIGNED' || a.status === 'REASSIGNED' || a.status === 'IN_PROGRESS');
 };
+
+export const getReportPdfUrl = (id: string): string =>
+  `${API_BASE_URL}${Endpoints.reportPdf(id)}`;
+
+export const getReportDownloadUrl = (id: string): string =>
+  `${API_BASE_URL}${Endpoints.reportDownload(id)}`;
 
 export const fetchCommodity = async (id: string): Promise<Commodity> =>
   (await apiClient.get(Endpoints.commodityDetail(id))).data;

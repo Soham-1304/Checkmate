@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 from app.core.exceptions import EntityNotFoundException, InvalidWorkflowStateException
 from app.deps import get_current_user, get_db, require_roles
 from app.models.compliance import AuditEvent
-from app.models.evidence import Declaration
+from app.models.evidence import AnalysisRun, Declaration
 from app.models.master_data import Commodity
 from app.models.rules import RuleSet
 from app.models.user import User
@@ -159,11 +159,36 @@ async def get_inspection(
         )
         for d in inspection.declarations
     ]
+
+    # Query latest completed analysis run to expose visual signals, quality signals, and packaging metrics
+    latest_run_stmt = (
+        select(AnalysisRun)
+        .where(AnalysisRun.inspection_id == inspection_id, AnalysisRun.status == "COMPLETED")
+        .order_by(desc(AnalysisRun.completed_at))
+        .limit(1)
+    )
+    latest_run = (await db.execute(latest_run_stmt)).scalar_one_or_none()
+
+    visual_signals = None
+    quality_signals = None
+    barcode_signals = None
+    pdp_area_cm2 = None
+    if latest_run and latest_run.raw_ocr_output:
+        raw_out = latest_run.raw_ocr_output
+        visual_signals = raw_out.get("visual_signals")
+        quality_signals = raw_out.get("quality_signals")
+        barcode_signals = raw_out.get("barcode_signals")
+        pdp_area_cm2 = raw_out.get("pdp_area_cm2")
+
     return InspectionDetailOut(
         **base.model_dump(),
         evidence_items=inspection.evidence_items,
         declarations=declarations,
         findings=inspection.findings,
+        visual_signals=visual_signals,
+        quality_signals=quality_signals,
+        barcode_signals=barcode_signals,
+        pdp_area_cm2=pdp_area_cm2,
     )
 
 

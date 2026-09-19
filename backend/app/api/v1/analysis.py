@@ -224,10 +224,27 @@ async def analyze_auto(
     from app.core.config import settings
 
     results, ev_ids, raw_images = [], [], []
+    ml_result = None
+
     for ev in ev_rows:
         try:
             data = await asyncio.to_thread(
                 storage_service.download_bytes, ev.file_key, settings.SUPABASE_BUCKET_EVIDENCE)
+
+            # If remote ML microservice is configured, query it for spatial parsing and vision diagnostics
+            if settings.ML_SERVICE_URL and ml_result is None:
+                try:
+                    pdp_val = float(ev.pdp_area_cm2) if ev.pdp_area_cm2 else None
+                    ml_result = await ocr_service.call_ml_service(
+                        data,
+                        filename=f"evidence_{ev.id}.jpg",
+                        pdp_area_cm2=pdp_val,
+                    )
+                    if ml_result:
+                        logger.info("Successfully received prediction from ML microservice for inspection %s", inspection_id)
+                except Exception as ml_exc:
+                    logger.warning("ML microservice call error (%s); proceeding with local fallback", ml_exc)
+
             res = await asyncio.to_thread(ocr_service.extract_image, data, pkg_height_mm)
         except Exception as exc:
             logger.warning("auto-extract failed for evidence %s: %s", ev.id, exc)
@@ -246,17 +263,49 @@ async def analyze_auto(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                             detail="Server-side OCR extracted nothing.")
 
-    declarations = ocr_service.build_declarations(results, ev_ids)
+    declarations = ocr_service.build_declarations(results, ev_ids, ml_payload=ml_result)
+
+    engine_name = (
+        ml_result.get("ocr_engine_used", "paddleocr")
+        if ml_result else "rapidocr-onnxruntime"
+    )
+
+    raw_output = {
+        "engine": engine_name,
+        "pipeline_version": pipeline_version,
+        "images": raw_images,
+        "visual_signals": ml_result.get("visual_signals") if ml_result else None,
+        "quality_signals": ml_result.get("quality_signals") if ml_result else None,
+        "barcode_signals": ml_result.get("barcode_signals") if ml_result else None,
+        "pdp_area_cm2": ml_result.get("effective_pdp_cm2") if ml_result else None,
+        "pdp_estimated": ml_result.get("pdp_estimated") if ml_result else None,
+        "violations": ml_result.get("violations") if ml_result else None,
+        "penalty": ml_result.get("penalty") if ml_result else None,
+    }
+
     out = await ingest_declarations(
         inspection_id, run.id,
         DeclarationIngestRequest(
             declarations=declarations,
-            raw_ocr_output={"engine": "rapidocr-onnxruntime",
-                            "pipeline_version": pipeline_version, "images": raw_images}),
+            raw_ocr_output=raw_output),
         db, current_user,
     )
-    # Auto-render the compliance PDF so upload → OCR → report is ONE call.
-    # Non-fatal: analysis result is still returned if the render/upload fails.
+
+    # 1. Automatically evaluate statutory compliance against Legal Metrology Rules (Rule 6, 7, 8, 9)
+    compliance_res = None
+    findings_count = 0
+    try:
+        from app.services import compliance_service
+        compliance_res, findings = await compliance_service.run_compliance_evaluation(inspection_id, db)
+        findings_count = len(findings) if findings else 0
+        logger.info(
+            "Auto compliance evaluation succeeded for inspection %s: verdict=%s, findings=%d",
+            inspection_id, compliance_res, findings_count,
+        )
+    except Exception as eval_exc:
+        logger.warning("Auto compliance evaluation failed for %s: %s", inspection_id, eval_exc)
+
+    # 2. Auto-render the statutory compliance PDF report with populated findings
     report_url = None
     try:
         report = await report_service.render_inspection_report(db, inspection_id, current_user.id)
@@ -266,7 +315,11 @@ async def analyze_auto(
         logger.exception("auto report render failed for inspection %s", inspection_id)
 
     return {"success": True, "run_id": run.id, "status": "COMPLETED",
+            "compliance_result": compliance_res,
+            "findings_count": findings_count,
             "images_processed": len(results),
             "avg_confidence": round(sum(r["avg_confidence"] for r in results) / len(results), 4),
+            "engine": engine_name,
             "ingest": out,
             "report_url": report_url}
+

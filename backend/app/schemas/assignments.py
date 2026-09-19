@@ -29,6 +29,8 @@ class AssignmentOut(BaseModel):
     commodity_id: UUID
     commodity_name: Optional[str] = None
     commodity_barcode: Optional[str] = None
+    brand_name: Optional[str] = None
+    commodity_category: Optional[str] = None
     assigned_by: UUID
     assigner_name: Optional[str] = None
     assigned_to: UUID

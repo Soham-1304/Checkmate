@@ -1,11 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Bell, Plus, Download, ChevronDown, LogOut, ShieldCheck, User as UserIcon } from 'lucide-react';
+import { Search, Bell, Plus, Download, ChevronDown, LogOut, ShieldCheck, User as UserIcon, UserCheck } from 'lucide-react';
 import { triggerSignOut } from './LoginGate';
+import { BASE } from '../api/client';
 
 interface HeaderProps {
   currentTab: string;
   onOpenSearch: () => void;
   onOpenNewInspection: () => void;
+  onAssignCommodity?: () => void;
   onAddCompany?: () => void;
   onAddOfficer?: () => void;
   notificationCount?: number;
@@ -15,6 +17,7 @@ export const Header: React.FC<HeaderProps> = ({
   currentTab,
   onOpenSearch,
   onOpenNewInspection,
+  onAssignCommodity,
   onAddCompany,
   onAddOfficer,
   notificationCount = 3,
@@ -47,7 +50,6 @@ export const Header: React.FC<HeaderProps> = ({
 
   const handleExportCsv = async () => {
     try {
-      const BASE = (import.meta as any).env?.VITE_API_BASE_URL ?? 'http://localhost:8000/api/v1';
       const authToken = localStorage.getItem('doca_admin_token') || '';
       const res = await fetch(`${BASE}/repository/export/csv`, {
         headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
@@ -101,6 +103,18 @@ export const Header: React.FC<HeaderProps> = ({
           <Download className="w-3.5 h-3.5 text-slate-500" />
           <span>Export CSV</span>
         </button>
+
+        {/* Assign Task Button */}
+        {onAssignCommodity && (
+          <button
+            onClick={onAssignCommodity}
+            className="flex items-center gap-1.5 bg-white border border-[#017374]/30 hover:border-[#017374] text-[#017374] hover:bg-[#E5F0EC]/50 px-3.5 py-2 rounded-xl text-xs font-bold shadow-2xs transition-all duration-150"
+            title="Assign Commodity to Officer"
+          >
+            <UserCheck className="w-3.5 h-3.5 stroke-[2.5]" />
+            <span>Assign Task</span>
+          </button>
+        )}
 
         {/* Action CTA Button */}
         {isCompaniesTab ? (

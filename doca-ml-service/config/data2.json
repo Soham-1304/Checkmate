@@ -1,0 +1,933 @@
+{
+  "source_metadata": {
+    "rules_doc": "The Legal Metrology (Packaged Commodities) Rules, 2011",
+    "act_doc": "The Legal Metrology Act, 2009",
+    "rules_notification": "G.S.R. 202(E) dated 7th March, 2011",
+    "act_commencement": "13th January, 2010",
+    "amendments_tracked": [
+      "Legal Metrology (Packaged Commodities) Amendment Rules, 2017",
+      "Legal Metrology (Packaged Commodities) Amendment Rules, 2021",
+      "Legal Metrology (Packaged Commodities) Amendment Rules, 2022 (E-Commerce and USP)"
+    ],
+    "source_urls": [
+      "https://consumeraffairs.gov.in/pages/legal-metrology-act",
+      "https://www.lm.doca.gov.in/Homepage.aspx"
+    ]
+  },
+  "commodity_categories": {
+    "food_and_beverages": {
+      "description": "Packaged food articles, beverages, edible oils, dairy products, cereals, pulses, spices, and related consumables.",
+      "mandatory_declarations": [
+        "mrp",
+        "unit_sale_price",
+        "net_quantity",
+        "mfg_date",
+        "expiry_or_best_before",
+        "mfr_packer_importer_name_address",
+        "consumer_care",
+        "generic_name",
+        "fssai_lic_no",
+        "veg_nonveg_symbol"
+      ],
+      "exempted_fields": [],
+      "special_provisions": {
+        "food_specific_rules": "Rule 6(1)(a) Explanation III: Prevention of Food Adulteration Act, 1954 (37 of 1954) and rules made thereunder apply for food articles.",
+        "best_before_exception": "Rule 6(1)(g)(B) proviso: Best before or Use before period of ninety days or less from date of manufacture or packing shall not be eligible for packaging material carry-over exemption.",
+        "mfg_date_exemption": "Rule 6(1)(d) proviso: Food articles governed by PFA Act, 1954 for month/year declaration.",
+        "fssai_license": "Mandatory for food and beverage products as per FSSAI regulations. 14-digit license number required.",
+        "veg_nonveg_symbol": "Mandatory for food and beverage products as per FSSAI regulations.",
+        "usp_mandatory": "Unit Sale Price mandatory per Rule 6(1)(e) amendment, expressed as ₹ per g / kg / ml / l / N"
+      },
+      "standard_pack_sizes": {
+        "section_citation": "Rule 5 & Second Schedule",
+        "baby_food": {
+          "standard_quantities_g": [25, 50, 100, 200, 300, 350, 400, 450, 500, 600, 700, 800, 900, 1000, 2000, 5000, 10000]
+        },
+        "weaning_food": {
+          "standard_quantities_g": [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 2000, 5000, 10000],
+          "note": "Below 50g no restriction"
+        },
+        "biscuits": {
+          "standard_quantities_g": [25, 50, 60, 75, 100, 120, 150, 200, 250, 300, 350, 400],
+          "note": "thereafter in multiples of 100g up to 1 kg and thereafter in multiples of 500g up to 5 kg"
+        },
+        "bread_including_brown_bread_excluding_bun": {
+          "standard_quantities_g": [50],
+          "note": "thereafter in multiples of 50g up to 500g and above 500g in multiples of 100g"
+        },
+        "un_canned_packages_of_butter_and_margarine": {
+          "standard_quantities_g": [25, 50, 100, 200, 500, 1000, 2000, 5000],
+          "note": "Below 25g no restriction; thereafter in multiples of 5 kg"
+        },
+        "cereals_and_pulses": {
+          "standard_quantities_g": [100, 200, 500, 1000, 2000, 5000],
+          "note": "Below 100g no restriction; thereafter multiples of 5 kg"
+        },
+        "coffee": {
+          "standard_quantities_g": [25, 50, 75, 100, 150, 200, 250, 500, 1000, 1500, 2000],
+          "note": "Below 25g no restriction; thereafter in multiples of 1 kg"
+        },
+        "tea": {
+          "standard_quantities_g": [25, 50, 100, 125, 250, 500, 1000],
+          "note": "Below 25g no restriction; thereafter in multiples of 1 kg"
+        },
+        "materials_which_may_be_constituted_or_reconstituted_as_beverages": {
+          "standard_quantities_g": [50, 75, 100, 200, 250, 400, 450, 500, 750, 1000],
+          "note": "Below 50g no restriction; 56g and 61g for medical purpose only; thereafter in multiples of 1 kg"
+        },
+        "edible_oils_vanaspati_ghee_butter_oil": {
+          "standard_quantities_g": [50, 100, 200, 250, 500, 1000, 2000, 3000, 5000],
+          "note": "If net quantity is declared by volume, then 50ml, 100ml, 200ml, 250ml, 500ml, 1 litre, 2 litre, 3 litre, 5 litre and thereafter in multiples of 5 litre and the net quantity must be declared by mass also in the same size of letters/numerals"
+        },
+        "milk_powder": {
+          "standard_quantities_g": [50, 100, 200, 500, 1000],
+          "note": "Below 50g no restriction; thereafter in multiples of 500g"
+        },
+        "rice_powdered_flour_atta_rawa_suji": {
+          "standard_quantities_g": [100, 200, 500, 1000, 2000, 5000],
+          "note": "thereafter in multiples of 5 kg"
+        },
+        "salt": {
+          "standard_quantities_g": [50, 100, 200, 500, 750, 1000, 2000, 5000],
+          "note": "Below 50g in multiples of 10g; thereafter in multiples of 5 kg"
+        },
+        "aerated_soft_drinks_non_alcoholic_beverages": {
+          "standard_quantities_ml": [65, 100, 125, 150, 200, 250, 300, 330, 500, 750, 1000, 1500, 2000, 3000, 4000, 5000],
+          "notes": {
+            "65_ml": "fruit based drinks only",
+            "125_ml": "fruit based drinks only",
+            "330_ml": "in cans only"
+          }
+        },
+        "mineral_water_and_packaged_drinking_water": {
+          "standard_quantities_ml": [100, 150, 200, 250, 300, 500, 750, 1000, 1500, 2000, 3000, 4000, 5000]
+        },
+        "honey_malt_extract_golden_syrup_treacle": {
+          "standard_quantities_g": [50, 100, 200, 500, 1000, 2000, 5000]
+        },
+        "ice_cream_and_other_similar_frozen_products": {
+          "standard_quantities_g": [50, 100, 200, 500, 1000, 2000, 5000]
+        },
+        "rasgulla_gulabjamun_and_other_sweet_preparations": {
+          "standard_quantities_g": [50, 100, 200, 500, 1000, 2000, 5000]
+        },
+        "sauces_all_kinds": {
+          "standard_quantities_g": [50, 100, 200, 500, 1000, 2000, 5000]
+        }
+      }
+    },
+    "garments_and_hosiery": {
+      "description": "Readymade garments, hosiery, textiles, bed sheets, hemmed fabric materials, dhoties, sarees, napkins, pillow-covers, towels, table cloths, and similar made-up textile articles.",
+      "mandatory_declarations": [
+        "mrp",
+        "unit_sale_price",
+        "net_quantity",
+        "mfr_packer_importer_name_address",
+        "consumer_care",
+        "generic_name",
+        "size_declaration",
+        "dimensions_length_width",
+        "number_of_pieces"
+      ],
+      "exempted_fields": [
+        "mfg_date"
+      ],
+      "special_provisions": {
+        "section_citation": "Rule 14",
+        "dimension_requirements": "Number and dimensions of finished size of commodities must be declared on package or label.",
+        "multiple_pieces": "Where package contains more than one piece of different dimensions, declaration of dimensions and retail sale price of each such piece shall be on package and each individual piece."
+      },
+      "examples": [
+        "Bed-sheets",
+        "Hemmed fabric materials",
+        "Dhoties",
+        "Sarees",
+        "Napkins",
+        "Pillow-covers",
+        "Towels",
+        "Table cloths",
+        "Ready-made garments"
+      ]
+    },
+    "cosmetics_and_toiletries": {
+      "description": "Cosmetics, soaps, shampoos, lotions, creams, perfumes, and related personal care products.",
+      "mandatory_declarations": [
+        "mrp",
+        "unit_sale_price",
+        "net_quantity",
+        "mfg_date",
+        "mfr_packer_importer_name_address",
+        "consumer_care",
+        "generic_name"
+      ],
+      "exempted_fields": [],
+      "special_provisions": {
+        "section_citation": "Rule 6(1)(d) proviso",
+        "drugs_cosmetics_rules": "Drugs and Cosmetics Rules, 1945 apply for packages containing cosmetics products.",
+        "when_packed_allowed": "Rule 11(4) & Third Schedule: All kinds of Soaps, Lotions, Cream (other than cream of milk) may be qualified by words 'When packed'."
+      },
+      "standard_pack_sizes": {
+        "soaps": {
+          "laundry_soap": {
+            "standard_quantities_g": [50, 75, 100],
+            "note": "thereafter in multiples of 50g"
+          },
+          "non_soapy_detergent_cakes_bars": {
+            "standard_quantities_g": [50, 75, 100, 125, 150, 200, 250, 300],
+            "note": "thereafter in multiples of 100g"
+          },
+          "toilet_soap_including_all_kinds_of_bath_soap": {
+            "standard_quantities_g": [25, 50, 75, 100, 125, 150],
+            "note": "thereafter in multiples of 50g"
+          }
+        }
+      },
+      "examples": [
+        "All kinds of Soaps",
+        "Lotions",
+        "Cream (other than cream of milk)",
+        "Shampoo",
+        "Perfumes",
+        "Cosmetics including creams, shampoo, lotions and perfumes"
+      ]
+    },
+    "drugs_and_pharmaceuticals": {
+      "description": "Scheduled formulations and non-scheduled formulations covered under Drugs (Price Control) Order, 1995.",
+      "mandatory_declarations": [
+        "mrp",
+        "net_quantity",
+        "mfg_date",
+        "expiry_date",
+        "batch_number",
+        "mfr_packer_importer_name_address",
+        "consumer_care",
+        "generic_name",
+        "drug_licence_number"
+      ],
+      "exempted_fields": [],
+      "special_provisions": {
+        "section_citation": "Rule 26(c)",
+        "exemption": "Nothing contained in these rules shall apply to packages containing scheduled formulations and non-scheduled formulations covered under the Drugs (Price Control) Order, 1995 made under section 3 of the Essential Commodities Act, 1955 (10 of 1955)."
+      }
+    },
+    "agricultural_produce": {
+      "description": "Agricultural farm produce, seeds, and related products.",
+      "mandatory_declarations": [
+        "mrp",
+        "net_quantity",
+        "mfg_date",
+        "mfr_packer_importer_name_address",
+        "consumer_care",
+        "generic_name"
+      ],
+      "exempted_fields": [],
+      "special_provisions": {
+        "section_citation": "Rule 26(d)",
+        "exemption": "Nothing contained in these rules shall apply to agricultural farm produces in packages of above 50 kg.",
+        "seed_exemption": "Rule 6(1)(d) second proviso: Packages containing seeds which are labeled and certified under the provisions of the Seeds Act, 1966 (54 of 1966) and rules made thereunder are exempt from month/year declaration."
+      }
+    },
+    "industrial_and_institutional_goods": {
+      "description": "Packaged commodities meant for industrial consumers or institutional consumers.",
+      "mandatory_declarations": [],
+      "exempted_fields": [],
+      "special_provisions": {
+        "section_citation": "Rule 3(b)",
+        "exemption": "Provisions of Chapter II shall not apply to packaged commodities meant for industrial consumers or institutional consumers.",
+        "definitions": {
+          "institutional_consumer": "Institutional consumer like transportation, Airways, Railways, Hotels, Hospitals or any other service institutions who buy packaged commodities directly from the manufacturer for use by that institution.",
+          "industrial_consumer": "Industrial consumer who buy packaged commodities directly from the manufacturer for use by that industry."
+        }
+      }
+    },
+    "petroleum_products": {
+      "description": "Liquefied petroleum gas, kerosene, diesel, and other petroleum products.",
+      "mandatory_declarations": [
+        "mrp",
+        "net_quantity",
+        "mfg_date",
+        "mfr_packer_importer_name_address",
+        "consumer_care",
+        "generic_name"
+      ],
+      "exempted_fields": [],
+      "special_provisions": {
+        "section_citation": "Rule 6(1)(d) & 6(1)(e) provisos",
+        "lpg_exemption": "Month/year declaration not required on domestic liquefied petroleum gas cylinder of 14.2kg or 5kg bottled and marketed by a public sector undertaking.",
+        "mrp_exemption": "No declaration of retail sale price required on domestic LPG cylinder of which the price is covered under the Administrative Price Mechanism of the Government."
+      },
+      "standard_pack_sizes": {
+        "liquefied_petroleum_gas": {
+          "standard_quantities_kg": [5, 14.2]
+        }
+      },
+      "examples": [
+        "Liquefied petroleum gas",
+        "Heavy residual fuel oil",
+        "Industrial diesel fuel",
+        "Furnace oil"
+      ]
+    },
+    "cement": {
+      "description": "Cement sold in bags.",
+      "mandatory_declarations": [
+        "mrp",
+        "unit_sale_price",
+        "net_quantity",
+        "mfg_date",
+        "mfr_packer_importer_name_address",
+        "consumer_care",
+        "generic_name",
+        "bis_registration"
+      ],
+      "exempted_fields": [],
+      "special_provisions": {
+        "section_citation": "Rule 3(a)",
+        "exemption": "Packages of cement and fertilizer sold in bags up to 50 kg are excluded from the 25 kg/25 litre exemption.",
+        "bis_certification": "BIS registration mandatory for cement under BIS Act, 2016"
+      },
+      "standard_pack_sizes": {
+        "cement_in_bags": {
+          "standard_quantities_kg": [50]
+        }
+      }
+    },
+    "fertilizers": {
+      "description": "Fertilizers sold in bags.",
+      "mandatory_declarations": [
+        "mrp",
+        "unit_sale_price",
+        "net_quantity",
+        "mfg_date",
+        "mfr_packer_importer_name_address",
+        "consumer_care",
+        "generic_name"
+      ],
+      "exempted_fields": [],
+      "special_provisions": {
+        "section_citation": "Rule 3(a)",
+        "exemption": "Packages of cement and fertilizer sold in bags up to 50 kg are excluded from the 25 kg/25 litre exemption."
+      }
+    },
+    "paints_and_varnishes": {
+      "description": "Paints, varnishes, varnish stains, enamels, and related products.",
+      "mandatory_declarations": [
+        "mrp",
+        "unit_sale_price",
+        "net_quantity",
+        "mfg_date",
+        "mfr_packer_importer_name_address",
+        "consumer_care",
+        "generic_name"
+      ],
+      "exempted_fields": [],
+      "special_provisions": {
+        "fourth_schedule": "Paint (other than paste paint or solid paint), varnish, varnish stains, enamels may be sold by weight or volume; Paste paint and solid paint may be sold by weight."
+      },
+      "standard_pack_sizes": {
+        "paint_other_than_paste_or_solid": {
+          "standard_quantities_ml": [50, 100, 200, 500, 1000, 2000, 3000, 4000, 5000],
+          "note": "thereafter in multiples of 5 litres"
+        },
+        "paste_paint_and_solid_paint": {
+          "standard_quantities_g": [500, 1000, 1500, 2000, 3000, 5000, 7000],
+          "note": "thereafter in multiples of 5 kg"
+        },
+        "base_paint": {
+          "standard_quantities_ml": [450, 500, 900, 925, 950, 975, 1000, 3600, 3700, 3800, 3900, 4000],
+          "note": "no restriction above 4 litres"
+        }
+      },
+      "examples": [
+        "Paint (other than paste paint or solid paint)",
+        "Varnish",
+        "Varnish stains",
+        "Enamels",
+        "Paste paint",
+        "Solid paint",
+        "Base paint"
+      ]
+    },
+    "detergents_and_cleaning_products": {
+      "description": "Non-soapy detergents, laundry soap, and related cleaning products.",
+      "mandatory_declarations": [
+        "mrp",
+        "unit_sale_price",
+        "net_quantity",
+        "mfg_date",
+        "mfr_packer_importer_name_address",
+        "consumer_care",
+        "generic_name"
+      ],
+      "exempted_fields": [],
+      "special_provisions": {
+        "when_packed": "All kinds of soaps may be qualified by words 'When packed' under Rule 11(4) and Third Schedule."
+      },
+      "standard_pack_sizes": {
+        "non_soapy_detergents_powder": {
+          "standard_quantities_g": [50, 100, 200, 500, 700, 1000, 1500, 2000],
+          "note": "below 50g no restriction; thereafter in multiples of 1 kg"
+        }
+      },
+      "examples": [
+        "Non-soapy detergents (powder)",
+        "Laundry Soap",
+        "Non-soapy detergent cakes/bars",
+        "Toilet Soap including all kinds of bath soap (cakes)"
+      ]
+    },
+    "electrical_and_electronics": {
+      "description": "Electrical cables, wires, and related electronic products requiring BIS certification.",
+      "mandatory_declarations": [
+        "mrp",
+        "unit_sale_price",
+        "net_quantity",
+        "mfg_date",
+        "mfr_packer_importer_name_address",
+        "consumer_care",
+        "generic_name",
+        "bis_registration"
+      ],
+      "exempted_fields": [],
+      "special_provisions": {
+        "bis_certification": "BIS registration mandatory for electrical cables, wires, and specified electronic products under BIS Act, 2016",
+        "fourth_schedule": "Electric Cables, Electric wire, Fencing wire may be sold by length or weight"
+      },
+      "examples": [
+        "Electric Cables",
+        "Electric wire",
+        "Fencing wire"
+      ]
+    },
+    "general_packaged_goods": {
+      "description": "All other packaged commodities not specifically categorized elsewhere.",
+      "mandatory_declarations": [
+        "mrp",
+        "unit_sale_price",
+        "net_quantity",
+        "mfg_date",
+        "mfr_packer_importer_name_address",
+        "consumer_care",
+        "generic_name"
+      ],
+      "exempted_fields": [],
+      "special_provisions": {
+        "section_citation": "Rule 6",
+        "general_requirements": "Every package shall bear mandatory declarations as per Rule 6(1)(a) through (g) and Rule 6(2)."
+      }
+    }
+  },
+  "field_validation_rules": {
+    "mrp": {
+      "section_citation": "Rule 6(1)(e)",
+      "is_mandatory": true,
+      "required_string_patterns": [
+        "Maximum",
+        "Max. retail price",
+        "MRP",
+        "inclusive of all taxes",
+        "incl. of all taxes"
+      ],
+      "currency_symbols": ["Rs.", "Rs", "₹"],
+      "forbidden_patterns": ["TAX EXTRA", "EXTRA CHARGES"],
+      "rounding_rules": "Fraction of less than fifty paise to be rounded off to the preceding rupee and fraction of above 50 paise and up to 95 paise to be rounded off to fifty paise.",
+      "exemptions": [
+        "Bidi packages",
+        "Domestic LPG cylinder covered under Administrative Price Mechanism"
+      ],
+      "sticker_rule": "Rule 6(3): Individual stickers not permissible except for reducing MRP with revised lower MRP inclusive of all taxes.",
+      "sticker_permitted_for": "Rule 6(4): Permissible to use stickers for declarations other than those required under these rules."
+    },
+    "unit_sale_price": {
+      "section_citation": "Rule 6(1)(e) (as amended 2021/2022)",
+      "is_mandatory": true,
+      "description": "Unit Sale Price expressed as price per standard unit of weight, measure, or number.",
+      "required_string_patterns": [
+        "Unit Sale Price",
+        "USP",
+        "₹/",
+        "Rs./",
+        "per g",
+        "per kg",
+        "per ml",
+        "per l",
+        "per N"
+      ],
+      "unit_format_regex": "^\\s*(Unit\\s*Sale\\s*Price|USP)\\s*[:\\-]?\\s*(₹|Rs\\.?)?\\s*([0-9]+(\\.[0-9]{1,2})?)\\s*/\\s*(g|kg|mg|ml|l|L|N|U|m|cm|mm|sq\\s*m|sq\\s*cm)\\s*$",
+      "permitted_denominator_units": ["g", "kg", "mg", "ml", "l", "L", "N", "U", "m", "cm", "mm", "sq m", "sq cm"],
+      "calculation_formula": "USP = MRP ÷ Net Quantity (in standard units)",
+      "applicable_commodities": ["all"],
+      "exemptions": [
+        "Bidi packages",
+        "Domestic LPG cylinder under APM",
+        "Packages where net quantity ≤ 10g / 10ml (small package exemption)"
+      ],
+      "validation_checks": {
+        "usp_must_not_exceed_mrp": true,
+        "usp_denominator_must_match_net_quantity_unit": true,
+        "usp_precision_decimals_max": 2
+      }
+    },
+    "net_quantity": {
+      "section_citation": "Rule 6(1)(c)",
+      "is_mandatory": true,
+      "permitted_units": {
+        "mass": ["g", "kg", "mg"],
+        "volume": ["ml", "l", "L", "cubic cm", "cubic m", "cubic dm"],
+        "length": ["m", "cm", "mm"],
+        "area": ["sq m", "sq dm", "sq cm"],
+        "number": ["N", "U"]
+      },
+      "unit_selection_rules": {
+        "less_than_1_kg": "gram",
+        "less_than_1_m": "centimetre",
+        "less_than_1_sq_m": "square decimetre",
+        "less_than_1_cubic_m": "cubic centimetre",
+        "less_than_1_litre": "millilitre",
+        "equal_or_more_than_1_kg": "kilogram",
+        "equal_or_more_than_1_m": "metre",
+        "equal_or_more_than_1_sq_m": "square metre",
+        "equal_or_more_than_1_cubic_m": "cubic metre",
+        "equal_or_more_than_1_litre": "litre"
+      },
+      "prohibited_qualifiers": [
+        "minimum",
+        "not less than",
+        "average",
+        "about",
+        "approximately",
+        "when packed"
+      ],
+      "prohibited_number_terms": ["dozen", "score", "gross", "great gross"],
+      "when_packed_allowed_exceptions": [
+        "All kinds of Soaps",
+        "Lotions",
+        "Cream (other than cream of milk)"
+      ],
+      "wrapper_weight_exclusion": "Rule 11(1): In declaring the net quantity, the weight of wrappers and materials other than the commodity shall be excluded.",
+      "environmental_variation": "Rule 11(2) & (3): Where commodity is not likely to undergo variation, declared quantity equals net quantity received.",
+      "significant_variation": "Rule 11(4) & Third Schedule: For commodities likely to undergo significant variation, declaration qualified by words 'When packed'."
+    },
+    "mfg_date": {
+      "section_citation": "Rule 6(1)(d)",
+      "is_mandatory": true,
+      "format_tokens": [
+        "MM/YYYY",
+        "MM-YYYY",
+        "DD/MM/YYYY",
+        "DD-MM-YYYY",
+        "Month YYYY",
+        "Mon YYYY",
+        "Month, YYYY",
+        "YYYY-MM"
+      ],
+      "ocr_regex_patterns": [
+        "^(0[1-9]|1[0-2])[\\/\\-](19|20)\\d{2}$",
+        "^(0[1-9]|[12][0-9]|3[01])[\\/\\-](0[1-9]|1[0-2])[\\/\\-](19|20)\\d{2}$",
+        "^(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[\\s,\\-]+(19|20)\\d{2}$",
+        "^(19|20)\\d{2}[\\/\\-](0[1-9]|1[0-2])$"
+      ],
+      "ocr_parser_tokens": {
+        "month_names_full": ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+        "month_names_abbr": ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Sept", "Oct", "Nov", "Dec"],
+        "date_separators": ["/", "-", ".", " "],
+        "year_range": [1900, 2099]
+      },
+      "rubber_stamp_allowed": true,
+      "overwriting_prohibited": true,
+      "exemptions": [
+        "Bid or incense sticks",
+        "Domestic LPG cylinder 14.2kg or 5kg bottled and marketed by public sector undertaking",
+        "Seeds labeled and certified under Seeds Act, 1966",
+        "Cosmetics under Drugs and Cosmetics Rules, 1945"
+      ],
+      "packaging_material_carryover": {
+        "section_citation": "Rule 6(1)(g)(B)",
+        "rule": "Where packaging material bearing month is not exhausted during that month, may be used for pre-packing in next succeeding month only.",
+        "extension": "Central Government may extend time if satisfied that material could not be exhausted due to circumstances beyond control.",
+        "food_exception": "Does not apply to food products where Best before or Use before period is ninety days or less from date of manufacture or packing."
+      }
+    },
+    "expiry_or_best_before": {
+      "section_citation": "Rule 6(1)(d) & FSSAI Regulations",
+      "is_mandatory_condition": "Required for food products, drugs, cosmetics, and products with limited shelf life",
+      "applicable_categories": ["food_and_beverages", "drugs_and_pharmaceuticals", "cosmetics_and_toiletries"],
+      "format_tokens": [
+        "DD/MM/YYYY",
+        "MM/YYYY",
+        "MM/YY",
+        "Month YYYY",
+        "Best Before: DD/MM/YYYY",
+        "Use By: DD/MM/YYYY",
+        "Expiry: MM/YYYY"
+      ],
+      "ocr_regex_patterns": [
+        "^(Best\\s*Before|Use\\s*By|Expiry|Exp\\.?|Use\\s*Before)\\s*[:\\-]?\\s*(0[1-9]|[12][0-9]|3[01])[\\/\\-](0[1-9]|1[0-2])[\\/\\-](19|20)\\d{2}$",
+        "^(Best\\s*Before|Use\\s*By|Expiry|Exp\\.?|Use\\s*Before)\\s*[:\\-]?\\s*(0[1-9]|1[0-2])[\\/\\-](19|20)\\d{2}$",
+        "^(Best\\s*Before|Use\\s*By|Expiry|Exp\\.?|Use\\s*Before)\\s*[:\\-]?\\s*(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[\\s,\\-]+(19|20)\\d{2}$"
+      ]
+    },
+    "mfr_packer_importer_name_address": {
+      "section_citation": "Rule 6(1)(a) & Rule 10",
+      "is_mandatory": true,
+      "required_fields": ["name", "complete_address"],
+      "complete_address_definition": "Postal address at which factory is situated, and in any other case, name of street, number assigned to premises, city and state name, PIN code.",
+      "pincode_regex": "^[1-9][0-9]{5}$",
+      "corporate_name": "Rule 10(2): Name shall be actual corporate name, or if not incorporated, name under which business is conducted in India.",
+      "presumptions": {
+        "explanation_I": "If name and address mentioned without qualifying words 'manufactured by' or 'packed by', presumed to be manufacturer.",
+        "explanation_II": "If brand name and address of brand owner appear as marketer, brand owner held responsible for violation.",
+        "explanation_III": "For food articles, PFA Act, 1954 provisions apply instead."
+      },
+      "small_package_exception": "Rule 10(1) proviso: For packages of capacity 5 cubic cm or less, a mark or inscription enabling consumer to identify manufacturer/packer/importer is sufficient.",
+      "imported_goods": "Where commodity manufactured outside India and packed in India, package shall contain on principal display panel name and complete address of packer or importer in India."
+    },
+    "consumer_care": {
+      "section_citation": "Rule 6(2)",
+      "is_mandatory": true,
+      "required_sub_fields": [
+        "contact_person_or_office",
+        "address",
+        "phone_or_email"
+      ],
+      "phone_regex": "^(\\+91[\\-\\s]?)?[0]?(91)?[6789]\\d{9}$",
+      "toll_free_regex": "^(1800|1860)[\\-\\s]?\\d{3}[\\-\\s]?\\d{4}$",
+      "email_regex": "^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$"
+    },
+    "generic_name": {
+      "section_citation": "Rule 6(1)(b)",
+      "is_mandatory": true,
+      "multiple_products": "In case of packages with more than one product, the name and number or quantity of each product shall be mentioned on the package."
+    },
+    "size_declaration": {
+      "section_citation": "Rule 14 & Garment Packaging Rules",
+      "is_mandatory": true,
+      "applicable_categories": ["garments_and_hosiery"],
+      "standard_letter_sizes": ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "2XL", "3XL", "4XL", "5XL", "Free Size", "FS"],
+      "standard_numeric_sizes": {
+        "adult_chest_inches": [28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52],
+        "adult_waist_inches": [24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52],
+        "kids_age_years": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+      },
+      "size_format_regex": "^\\s*(XS|S|M|L|XL|XXL|XXXL|[2-5]XL|Free\\s*Size|FS)\\s*$|^\\s*\\d{2,3}\\s*(cm|CM|in|inch|inches|\")\\s*$|^\\s*\\d{2,3}\\s*(cm|CM|in|inch|inches|\")\\s*[xX×]\\s*\\d{2,3}\\s*(cm|CM|in|inch|inches|\")\\s*$",
+      "dimension_units": ["cm", "CM", "in", "inch", "inches", "\""],
+      "dimension_regex": "^\\s*\\d+(\\.\\d+)?\\s*(cm|CM|in|inch|inches|\")\\s*[xX×]\\s*\\d+(\\.\\d+)?\\s*(cm|CM|in|inch|inches|\")(\\s*[xX×]\\s*\\d+(\\.\\d+)?\\s*(cm|CM|in|inch|inches|\"))?\\s*$",
+      "measurement_type_tokens": ["Chest", "Waist", "Hip", "Length", "Shoulder", "Sleeve", "Inseam", "Neck", "Bust"],
+      "required_declaration": "Each individual piece shall also be marked with dimensions and retail sale price",
+      "multiple_pieces": "Where package contains more than one piece of different dimensions, declaration of dimensions and retail sale price of each such piece shall be on package and each individual piece."
+    },
+    "dimensions": {
+      "section_citation": "Rule 6(1)(f) & Rule 14",
+      "is_mandatory_condition": "Where sizes of commodity contained in package are relevant.",
+      "garments_rule": "Rule 14: Number and dimensions of finished size shall be declared.",
+      "multiple_pieces": "Declaration of dimensions and retail sale price of each such piece shall be on package and each individual piece."
+    },
+    "unit_sale_price_legacy": {
+      "section_citation": "Rule 2(m) & Rule 6(1)(e)",
+      "is_mandatory": true,
+      "definition": "Maximum price at which the commodity in packaged form may be sold to the ultimate consumer.",
+      "format": "Maximum or Max. retail price Rs..../.... inclusive of all taxes or in the form MRP Rs..../.... incl. of all taxes"
+    },
+    "fssai_lic_no": {
+      "section_citation": "FSSAI (Licensing and Registration of Food Businesses) Regulations, 2011 & Rule 6(1)(a) Explanation III",
+      "is_mandatory": true,
+      "applicable_to": "food_and_beverages",
+      "legal_basis": "Prevention of Food Adulteration Act, 1954 (37 of 1954) and rules made thereunder; FSSAI Act, 2006",
+      "required_string_patterns": ["FSSAI", "Lic. No.", "License No.", "FSSAI Lic. No."],
+      "validation_regex": "^[0-9]{14}$",
+      "license_format_description": "14-digit numeric FSSAI license number",
+      "format_examples": ["12345678901234", "10012345678901"],
+      "central_license_prefix": "1",
+      "state_license_prefix": "2",
+      "display_format_regex": "FSSAI\\s*(Lic\\.?\\s*No\\.?|License\\s*No\\.?)?\\s*[:\\-]?\\s*[0-9]{14}",
+      "validation_checks": {
+        "must_be_exactly_14_digits": true,
+        "must_be_numeric_only": true,
+        "must_contain_prefix_1_or_2": true
+      }
+    },
+    "bis_registration": {
+      "section_citation": "BIS Act, 2016 & Rule 6",
+      "is_mandatory": true,
+      "applicable_to": ["cement", "electrical_and_electronics"],
+      "required_string_patterns": ["BIS", "ISI", "ISI Mark", "BIS Reg."],
+      "validation_regex": "^R-[0-9]{8}$",
+      "alternative_regex": "^CM/L-[0-9]{7,10}$",
+      "license_format_description": "BIS Registration number in format R-XXXXXXXX (8 digits) or CM/L-XXXXXXXXX (7-10 digits)",
+      "format_examples": ["R-12345678", "CM/L-1234567", "CM/L-1234567890"],
+      "isi_mark_regex": "^ISI\\s*Mark\\s*[:\\-]?\\s*(R-[0-9]{8}|CM/L-[0-9]{7,10})$",
+      "validation_checks": {
+        "must_start_with_R_dash_or_CM_slash_L": true,
+        "numeric_part_length_R_format": 8,
+        "numeric_part_length_CM_L_format_range": [7, 10]
+      }
+    },
+    "drug_licence_number": {
+      "section_citation": "Drugs and Cosmetics Act, 1940 & Rule 6",
+      "is_mandatory": true,
+      "applicable_to": "drugs_and_pharmaceuticals",
+      "validation_regex": "^[A-Z]{2}[0-9]{1,4}[A-Z]?$",
+      "format_examples": ["MH01A", "DL02B", "KA1234"],
+      "validation_checks": {
+        "must_start_with_state_code": true,
+        "must_contain_numeric_serial": true
+      }
+    },
+    "veg_nonveg_symbol": {
+      "section_citation": "FSSAI (Packaging and Labelling) Regulations, 2011",
+      "is_mandatory": true,
+      "applicable_to": "food_and_beverages",
+      "required_symbols": ["Green Dot (Vegetarian)", "Brown/Red Dot (Non-Vegetarian)"],
+      "validation_checks": {
+        "must_be_green_for_veg": true,
+        "must_be_brown_or_red_for_nonveg": true,
+        "symbol_must_be_within_green_or_brown_circle": true
+      }
+    }
+  },
+  "ecommerce_declarations": {
+    "section_citation": "Rule 6(10) (inserted by Legal Metrology (Packaged Commodities) Amendment Rules, 2022)",
+    "applicability": "Every e-commerce entity, marketplace, or electronic service provider displaying pre-packaged commodities for sale on digital platforms",
+    "mandatory_online_display_declarations": [
+      "name_and_address_of_manufacturer_packer_importer",
+      "name_and_address_of_marketer",
+      "country_of_origin",
+      "common_or_generic_name_of_commodity",
+      "net_quantity",
+      "unit_sale_price",
+      "mrp",
+      "month_and_year_of_manufacture_packing_import",
+      "expiry_date_or_best_before",
+      "consumer_care_details",
+      "dimensions_of_commodity_where_relevant",
+      "fssai_license_number_for_food",
+      "bis_registration_for_applicable_goods"
+    ],
+    "display_format_requirements": {
+      "mrp_display_regex": "(MRP|Maximum\\s*Retail\\s*Price)\\s*[:\\-]?\\s*(₹|Rs\\.?)?\\s*([0-9]+(\\.[0-9]{1,2})?)",
+      "net_quantity_display_regex": "(Net\\s*Quantity|Net\\s*Qty|Net\\s*Wt\\.?)\\s*[:\\-]?\\s*[0-9]+(\\.[0-9]+)?\\s*(g|kg|mg|ml|l|L|N|U|m|cm|mm)",
+      "unit_sale_price_display_regex": "(Unit\\s*Sale\\s*Price|USP)\\s*[:\\-]?\\s*(₹|Rs\\.?)?\\s*([0-9]+(\\.[0-9]{1,2})?)\\s*/\\s*(g|kg|mg|ml|l|L|N|U|m|cm|mm)",
+      "country_of_origin_regex": "(Country\\s*of\\s*Origin|Made\\s*in)\\s*[:\\-]?\\s*([A-Za-z\\s]+)"
+    },
+    "ecommerce_entity_obligations": {
+      "must_display_mrp": true,
+      "must_display_net_quantity": true,
+      "must_display_unit_sale_price": true,
+      "must_display_manufacturer_details": true,
+      "must_display_country_of_origin": true,
+      "must_display_expiry_for_perishables": true,
+      "must_ensure_display_matches_physical_package": true,
+      "must_update_price_changes": true
+    },
+    "penalties_for_ecommerce_violations": {
+      "section_citation": "Section 36(1) of The Legal Metrology Act, 2009 (as amended)",
+      "first_offense": "warning with improvement notice",
+      "second_offense_max_fine_inr": 500000,
+      "subsequent_offense": {
+        "fine_min_inr": 2500000,
+        "fine_max_inr": 5000000
+      },
+      "note": "E-commerce entities covered under Section 36(1) Explanation referencing Consumer Protection Act, 2019 definitions of 'e-commerce' and 'electronic service provider'"
+    },
+    "definition_references": {
+      "ecommerce": "As per Section 2(16) of the Consumer Protection Act, 2019",
+      "electronic_service_provider": "As per Section 2(17) of the Consumer Protection Act, 2019"
+    }
+  },
+  "font_height_matrix": {
+    "section_citation": "Rule 7 & Table I / Table II",
+    "aspect_ratio": {
+      "min_width_to_height_ratio": "1:3",
+      "exempt_characters": ["1", "i", "I", "l"]
+    },
+    "min_font_height_mm_letters": 1.0,
+    "min_font_height_mm_moulded_letters": 2.0,
+    "weight_volume_thresholds": [
+      {"net_qty_g_ml_min": 0, "net_qty_g_ml_max": 200, "min_font_height_mm_standard": 1.0, "min_font_height_mm_moulded": 2.0},
+      {"net_qty_g_ml_min": 200, "net_qty_g_ml_max": 500, "min_font_height_mm_standard": 2.0, "min_font_height_mm_moulded": 4.0},
+      {"net_qty_g_ml_min": 500, "net_qty_g_ml_max": null, "min_font_height_mm_standard": 4.0, "min_font_height_mm_moulded": 6.0}
+    ],
+    "pdp_area_thresholds": [
+      {"pdp_area_cm2_min": 0, "pdp_area_cm2_max": 100, "min_font_height_mm_standard": 1.0, "min_font_height_mm_moulded": 2.0},
+      {"pdp_area_cm2_min": 100, "pdp_area_cm2_max": 500, "min_font_height_mm_standard": 2.0, "min_font_height_mm_moulded": 4.0},
+      {"pdp_area_cm2_min": 500, "pdp_area_cm2_max": 2500, "min_font_height_mm_standard": 4.0, "min_font_height_mm_moulded": 6.0},
+      {"pdp_area_cm2_min": 2500, "pdp_area_cm2_max": null, "min_font_height_mm_standard": 6.0, "min_font_height_mm_moulded": 6.0}
+    ],
+    "exemptions": "Rule 7(4): Provisions under sub-rules (1) to (3) shall not apply if information is also required to be given by or under any other law in force."
+  },
+  "maximum_permissible_error": {
+    "section_citation": "Rule 22 & First Schedule",
+    "weight_volume_table": [
+      {"declared_qty_g_ml_min": 0, "declared_qty_g_ml_max": 50, "max_error_percent_excess": 9, "max_error_percent_deficiency": null},
+      {"declared_qty_g_ml_min": 50, "declared_qty_g_ml_max": 100, "max_error_percent_excess": null, "max_error_percent_deficiency": 4.5},
+      {"declared_qty_g_ml_min": 100, "declared_qty_g_ml_max": 200, "max_error_percent_excess": 4.5, "max_error_percent_deficiency": null},
+      {"declared_qty_g_ml_min": 200, "declared_qty_g_ml_max": 300, "max_error_percent_excess": null, "max_error_percent_deficiency": 9},
+      {"declared_qty_g_ml_min": 300, "declared_qty_g_ml_max": 500, "max_error_percent_excess": 3, "max_error_percent_deficiency": null},
+      {"declared_qty_g_ml_min": 500, "declared_qty_g_ml_max": 1000, "max_error_percent_excess": null, "max_error_percent_deficiency": 15},
+      {"declared_qty_g_ml_min": 1000, "declared_qty_g_ml_max": 10000, "max_error_percent_excess": 1.5, "max_error_percent_deficiency": null},
+      {"declared_qty_g_ml_min": 10000, "declared_qty_g_ml_max": 15000, "max_error_percent_excess": null, "max_error_percent_deficiency": 150},
+      {"declared_qty_g_ml_min": 15000, "declared_qty_g_ml_max": null, "max_error_percent_excess": 1.0, "max_error_percent_deficiency": null}
+    ],
+    "length_area_number_table": [
+      {"quantity_declared": "in units of length", "max_error_percent": 2, "note": "up to 10 metre and thereafter 1% of declared quantity"},
+      {"quantity_declared": "in units of area", "max_error_percent": 4, "note": "up to 10 sq. metre and thereafter 1% of declared quantity"},
+      {"quantity_declared": "by number", "max_error_percent": 2}
+    ]
+  },
+  "declaration_placement_rules": {
+    "section_citation": "Rule 8",
+    "principal_display_panel_required": true,
+    "area_surrounding_quantity": {
+      "above_and_below": "Space equal to at least height of numeral in declaration",
+      "left_and_right": "Space at least twice height of numeral in declaration",
+      "must_be_free_from_printed_information": true
+    },
+    "soft_drink_special": "Rule 8(2): For soft drink, ready to serve fruit beverages or the like, the bottle which is returnable by consumer for being refilled, retail sale price may be indicated on crown cap or bottle or both."
+  },
+  "declaration_manner_rules": {
+    "section_citation": "Rule 9",
+    "legibility": "Every declaration shall be legible and prominent.",
+    "color_contrast": "Numerals of retail sale price and net quantity shall be printed, painted or inscribed in a colour that contrasts conspicuously with background of label.",
+    "color_exceptions": [
+      "Where label information is blown, formed or moulded on glass or plastic surface, need not be in contrasting colour.",
+      "Where declaration is printed in hand-writing or hand-script, shall be clear, unambiguous and legible."
+    ],
+    "liquid_reading_prohibited": "No declaration shall be made so as to require it to be read through any liquid commodity contained in the package.",
+    "outer_container": "Where package is provided with outside container or wrapper, such container or wrapper shall also contain all declarations required to appear on package, except where container or wrapper itself is transparent and declarations on package are easily readable.",
+    "language": "Particulars of declarations shall either be in Hindi in Devnagri script or in English. Other languages may be used in addition."
+  },
+  "wholesale_package_rules": {
+    "section_citation": "Chapter III, Rule 24",
+    "mandatory_declarations": [
+      "mfr_importer_packer_name_address",
+      "identity_of_commodity",
+      "total_number_of_retail_packages_or_net_quantity"
+    ],
+    "exemptions": "Nothing in this rule shall apply if declaration similar to these is required to be made on wholesale packages by or under any other law in force."
+  },
+  "export_package_rules": {
+    "section_citation": "Chapter IV, Rule 25",
+    "restriction": "An export package shall not be sold in India unless manufacturer or packer has re-packed or re-labeled the commodity in accordance with Chapter II provisions.",
+    "penalty": "Where export package sold in India without re-packing or re-labeling, liable to be seized under the Act."
+  },
+  "exemptions": {
+    "small_package": {
+      "section_citation": "Rule 26(a)",
+      "max_weight_g": 10.0,
+      "max_volume_ml": 10.0,
+      "exempted_rules": ["all"],
+      "exception_to_exemption": "Packages 10g to 20g or 10ml to 20ml require MRP and net quantity declaration."
+    },
+    "fast_food": {
+      "section_citation": "Rule 26(b)",
+      "condition": "packed by restaurant or hotel and the like",
+      "exempted_rules": ["all"]
+    },
+    "drugs_price_control": {
+      "section_citation": "Rule 26(c)",
+      "condition": "scheduled formulations and non-scheduled formulations covered under Drugs (Price Control) Order, 1995",
+      "exempted_rules": ["all"]
+    },
+    "agricultural_produce": {
+      "section_citation": "Rule 26(d)",
+      "min_weight_kg_exclusive": 50.0,
+      "exempted_rules": ["all"]
+    },
+    "industrial_institutional": {
+      "section_citation": "Rule 3(b)",
+      "condition": "packaged commodities meant for industrial consumers or institutional consumers",
+      "exempted_rules": ["Chapter II provisions"]
+    },
+    "large_packages": {
+      "section_citation": "Rule 3(a)",
+      "condition": "packages containing quantity of more than 25 kg or 25 litre",
+      "exclusions": ["cement and fertilizer sold in bags up to 50 kg"],
+      "exempted_rules": ["Chapter II provisions"]
+    }
+  },
+  "registration_requirements": {
+    "section_citation": "Chapter VI, Rules 27-30",
+    "who_must_register": "Every individual, firm, Hindu undivided family, society, company or corporation who pre-packs or imports any commodity for sale, distribution or delivery.",
+    "fee_inr": 500,
+    "timeline_days": 90,
+    "registration_authority": "Director or Controller",
+    "alteration_fee_inr": 100,
+    "shorter_address_registration": "Permissible under Rule 28 if sufficient to identify manufacturer or packer.",
+    "register_inspection": "Open to public inspection without fee.",
+    "list_compilation": "Director/Controller shall compile State-wise list and circulate to concerned State Controller."
+  },
+  "advertisement_rules": {
+    "section_citation": "Rule 31",
+    "net_quantity_declaration_required": true,
+    "font_size_rule": "Font size of net quantity in advertisement shall be same as that of retail sale price."
+  },
+  "inspection_and_enforcement": {
+    "section_citation": "Rules 19-23",
+    "sample_size": {
+      "lot_size_less_than_4000": 32,
+      "lot_size_4000_or_more": 80
+    },
+    "fresh_test_fee_inr": 2500,
+    "seizure_authority": "Director, Controller or any Legal Metrology Officer",
+    "inspection_at_retailer": "Ordinarily not carried out unless complaint received, suspicion of tampering, or suspicion of missing declarations."
+  },
+  "penalties": {
+    "section_36_1_non_conforming_declarations": {
+      "section_citation": "Section 36(1) of The Legal Metrology Act, 2009",
+      "first_offense": "warning with improvement notice",
+      "second_offense_max_fine_inr": 500000,
+      "subsequent_offense": {
+        "fine_min_inr": 2500000,
+        "fine_max_inr": 5000000,
+        "max_imprisonment_years": null
+      },
+      "ecommerce_note": "Applicable to e-commerce entities under Explanation referencing Consumer Protection Act, 2019 definitions"
+    },
+    "section_36_2_error_in_net_quantity": {
+      "section_citation": "Section 36(2) of The Legal Metrology Act, 2009",
+      "first_offense": {"fine_min_inr": 10000, "fine_max_inr": 100000},
+      "second_offense_max_fine_inr": 500000,
+      "third_or_subsequent_offense": {"fine_max_inr": 5000000, "max_imprisonment_years": 1.0}
+    },
+    "section_32_violation_of_rules_27_to_31": {
+      "section_citation": "Rule 32(1) of The Legal Metrology (Packaged Commodities) Rules, 2011",
+      "max_fine_inr": 4000
+    },
+    "section_32_other_violations": {
+      "section_citation": "Rule 32(2) of The Legal Metrology (Packaged Commodities) Rules, 2011",
+      "max_fine_inr": 2000
+    },
+    "compounding": {
+      "section_citation": "Section 48 of The Legal Metrology Act, 2009",
+      "allowed": true,
+      "rules": "Any offence punishable under sections 25 to 39, section 41, sections 45 to 47, any rule made under sub-section (3) of section 52 or any rule made under sub-section (3) of section 53 may be compounded."
+    }
+  },
+  "validation_engine_hints": {
+    "ocr_normalization": {
+      "currency_variants": {"₹": ["Rs.", "Rs", "INR", "Rupees"], "Rs.": ["₹", "Rs", "INR"]},
+      "unit_variants": {"l": ["L", "lt", "ltr", "litre", "liter"], "ml": ["mL", "ML", "millilitre", "milliliter"], "kg": ["KG", "Kg", "kilogram"], "g": ["G", "gm", "gram"]}
+    },
+    "field_priority_order": [
+      "mrp",
+      "unit_sale_price",
+      "net_quantity",
+      "mfg_date",
+      "expiry_or_best_before",
+      "mfr_packer_importer_name_address",
+      "consumer_care",
+      "generic_name",
+      "fssai_lic_no",
+      "bis_registration",
+      "veg_nonveg_symbol",
+      "size_declaration"
+    ],
+    "conditional_rule_evaluation": {
+      "category_detection_first": true,
+      "exemption_check_before_validation": true,
+      "font_height_check_requires_pdp_area": true,
+      "usp_check_requires_mrp_and_net_quantity": true,
+      "ecommerce_rule_applies_only_to_digital_platforms": true
+    }
+  }
+}

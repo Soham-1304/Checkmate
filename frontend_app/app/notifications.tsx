@@ -8,7 +8,7 @@ import { useInspectStore } from '../src/store/inspectStore';
 
 interface NotificationItem {
   id: string;
-  type: 'ASSIGNMENT' | 'REVIEW' | 'SYSTEM';
+  type: 'ASSIGNMENT' | 'REVIEW' | 'STATUS_CHANGE' | 'SYSTEM';
   title: string;
   message: string;
   timestamp: string;
@@ -39,40 +39,51 @@ export default function NotificationsScreen() {
         items.push({
           id: `asgn-${a.id}`,
           type: 'ASSIGNMENT',
-          title: 'Pending Assignment',
-          message: `Scheduled inspection for ${a.commodity_name}${a.due_date ? ` due by ${a.due_date}` : ''}.`,
+          title: 'Pending Inspection Assignment',
+          message: `Assigned commodity "${a.commodity_name}" is pending inspection${a.due_date ? ` (Due: ${a.due_date})` : ''}.`,
           timestamp: a.due_date ? `Due ${a.due_date}` : 'Action Required',
           read: false,
           assignment: a,
         });
       });
 
-      // 2. Under Review & Flagged inspections alerts
-      inspections
-        .filter((i) => i.status === 'UNDER_REVIEW' || i.compliance_result === 'FAIL' || i.compliance_result === 'REVIEW')
-        .slice(0, 5)
-        .forEach((i) => {
-          const isReview = i.compliance_result === 'REVIEW';
-          const isFail = i.compliance_result === 'FAIL';
-          items.push({
-            id: `insp-${i.id}`,
-            type: 'REVIEW',
-            title: isFail ? 'Non-Compliance Detected' : isReview ? 'Officer Verification Needed' : 'Awaiting Admin Review',
-            message: `Inspection #${i.id.slice(0, 8)}: ${isFail ? 'Violations flagged on package label.' : 'Review declarations against physical sample.'}`,
-            timestamp: new Date(i.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' }),
-            read: false,
-            inspectionId: i.id,
-            actionRoute: `/analysis/${i.id}`,
-          });
-        });
+      // 2. Inspection status changes & reviews
+      inspections.slice(0, 8).forEach((i) => {
+        const isFail = i.compliance_result === 'FAIL';
+        const isPass = i.compliance_result === 'PASS';
+        const isReview = i.compliance_result === 'REVIEW' || i.status === 'UNDER_REVIEW';
+        
+        let title = 'Inspection Status Update';
+        let type: NotificationItem['type'] = 'STATUS_CHANGE';
+        if (isFail) {
+          title = 'Non-Compliance Detected';
+          type = 'REVIEW';
+        } else if (isReview) {
+          title = 'Officer Verification Warranted';
+          type = 'REVIEW';
+        } else if (isPass) {
+          title = 'Inspection Passed Successfully';
+        }
 
-      // 3. System advisory
+        items.push({
+          id: `insp-${i.id}`,
+          type,
+          title,
+          message: `Inspection #${i.id.slice(0, 8)} (${i.commodity_name || 'Commodity'}): Status is ${i.status.replace('_', ' ')}. Result: ${i.compliance_result || 'PENDING'}.`,
+          timestamp: new Date(i.created_at).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+          read: isPass, // Auto-mark passed ones as read, flag failures/reviews as unread
+          inspectionId: i.id,
+          actionRoute: `/analysis/${i.id}`,
+        });
+      });
+
+      // 3. System advisory / Legal metrology enforcement notice
       items.push({
-        id: 'sys-rule-2011',
+        id: 'sys-directive-2026',
         type: 'SYSTEM',
-        title: 'Gazette Directive Active',
-        message: 'Legal Metrology (Packaged Commodities) Rules 2011 active enforcement. Font height and MRP compliance are strictly audited.',
-        timestamp: 'Department of Consumer Affairs',
+        title: 'Legal Metrology (Packaged Commodities) Directive',
+        message: 'Mandatory font size (≥ 2.0 mm) and MRP declarations are strictly audited across all packaged commodity inspections.',
+        timestamp: 'Dept of Consumer Affairs',
         read: true,
       });
 
@@ -88,6 +99,9 @@ export default function NotificationsScreen() {
   useEffect(() => { loadNotifications(); }, [loadNotifications]);
 
   const handleAction = (item: NotificationItem) => {
+    // Mark as read
+    setNotifications((prev) => prev.map((n) => n.id === item.id ? { ...n, read: true } : n));
+
     if (item.assignment) {
       useInspectStore.getState().reset();
       useInspectStore.getState().setAssignment(item.assignment);
@@ -107,9 +121,11 @@ export default function NotificationsScreen() {
       case 'ASSIGNMENT':
         return { icon: 'assignment', color: Colors.primary, bg: Colors.primary + '15' };
       case 'REVIEW':
-        return { icon: 'warning-amber', color: '#E65100', bg: '#FFF3E0' };
+        return { icon: 'warning-amber', color: '#C62828', bg: '#FFEBEE' };
+      case 'STATUS_CHANGE':
+        return { icon: 'fact-check', color: '#1565C0', bg: '#E3F2FD' };
       case 'SYSTEM':
-        return { icon: 'campaign', color: '#1565C0', bg: '#E3F2FD' };
+        return { icon: 'campaign', color: '#6A1B9A', bg: '#F3E5F5' };
     }
   };
 
@@ -119,7 +135,7 @@ export default function NotificationsScreen() {
         <Pressable style={styles.iconButton} onPress={() => router.back()}>
           <MaterialIcons name="arrow-back" size={24} color={Colors.textPrimary} />
         </Pressable>
-        <Text style={[Typography.titleMedium, { fontWeight: '700' }]}>Notifications</Text>
+        <Text style={[Typography.titleMedium, { fontWeight: '700' }]}>Notifications & Updates</Text>
         <Pressable style={styles.markReadBtn} onPress={markAllRead}>
           <Text style={[Typography.labelSmall, { color: Colors.primary, fontWeight: '600' }]}>Mark Read</Text>
         </Pressable>
@@ -144,7 +160,7 @@ export default function NotificationsScreen() {
               No notifications
             </Text>
             <Text style={[Typography.bodySmall, { color: Colors.textTertiary, marginTop: 4 }]}>
-              You are all caught up on all assignments and reviews.
+              You are all caught up on all assignments and inspection updates.
             </Text>
           </View>
         ) : (
@@ -183,9 +199,9 @@ export default function NotificationsScreen() {
                     </View>
                   ) : item.inspectionId ? (
                     <View style={styles.actionRow}>
-                      <View style={[styles.actionChip, { backgroundColor: '#FFF3E0' }]}>
-                        <MaterialIcons name="fact-check" size={14} color="#E65100" />
-                        <Text style={[styles.actionChipText, { color: '#E65100' }]}>View Inspection Findings</Text>
+                      <View style={[styles.actionChip, { backgroundColor: '#E3F2FD' }]}>
+                        <MaterialIcons name="visibility" size={14} color="#1565C0" />
+                        <Text style={[styles.actionChipText, { color: '#1565C0' }]}>View Inspection Findings</Text>
                       </View>
                     </View>
                   ) : null}

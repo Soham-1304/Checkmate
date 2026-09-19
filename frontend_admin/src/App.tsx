@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { HeroSection } from './components/HeroSection';
@@ -23,9 +23,11 @@ import { NewInspectionModal } from './components/NewInspectionModal';
 import { SearchModal } from './components/SearchModal';
 import { AddCompanyModal } from './components/AddCompanyModal';
 import { AddOfficerModal } from './components/AddOfficerModal';
+import { AssignCommodityModal } from './components/AssignCommodityModal';
 import { AIAnalysisItem, InspectionDetailRow, CompanyRegistryRow } from './types';
 import { mapRepoRow, fetchRepoRows, useLiveInspections } from './api/useLiveData';
 import { ReviewDecisionValue } from './components/ReviewModal';
+import { api } from './api/client';
 import { CheckCircle, AlertTriangle } from 'lucide-react';
 
 export function App() {
@@ -52,8 +54,23 @@ export function App() {
   const [isNewInspectionOpen, setIsNewInspectionOpen] = useState(false);
   const [isAddCompanyOpen, setIsAddCompanyOpen] = useState(false);
   const [isAddOfficerOpen, setIsAddOfficerOpen] = useState(false);
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'warning' } | null>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsSearchOpen((prev) => !prev);
+      }
+      if (e.key === 'Escape') {
+        setIsSearchOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const { data: liveInspectionsList } = useLiveInspections();
   const pendingCount = liveInspectionsList.filter((i) => i.status === 'Pending' || i.status === 'AI Review').length;
@@ -108,7 +125,6 @@ export function App() {
 
   const recordDecision = async (id: string, decision: ReviewDecisionValue, okMsg: string) => {
     try {
-      const { api } = await import('./api/client');
       await api(`/inspections/${id}/review`, {
         method: 'POST',
         body: JSON.stringify({ decision }),
@@ -200,6 +216,7 @@ export function App() {
           currentTab={currentTab}
           onOpenSearch={() => setIsSearchOpen(true)}
           onOpenNewInspection={() => setIsNewInspectionOpen(true)}
+          onAssignCommodity={() => setIsAssignModalOpen(true)}
           onAddCompany={handleAddCompany}
           onAddOfficer={handleAddOfficer}
           notificationCount={pendingCount}
@@ -308,6 +325,12 @@ export function App() {
       <AddOfficerModal
         isOpen={isAddOfficerOpen}
         onClose={() => setIsAddOfficerOpen(false)}
+        onSuccess={(msg) => showToast(msg, 'success')}
+      />
+
+      <AssignCommodityModal
+        isOpen={isAssignModalOpen}
+        onClose={() => setIsAssignModalOpen(false)}
         onSuccess={(msg) => showToast(msg, 'success')}
       />
 

@@ -1,4 +1,4 @@
-const BASE =
+export const BASE =
   (import.meta as any).env?.VITE_API_BASE_URL ?? 'http://localhost:8000/api/v1';
 
 export const token = () =>
@@ -6,23 +6,13 @@ export const token = () =>
   (import.meta as any).env?.VITE_ADMIN_TOKEN ||
   '';
 
+/** Returns true only if a real auth token exists in localStorage. */
+export const isLiveConfigured = () => !!localStorage.getItem('doca_admin_token');
+
 export async function ensureAdminToken(): Promise<string> {
   const existing = token();
   if (existing) return existing;
-  try {
-    const res = await fetch(`${BASE}/auth/login/json`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'admin@doca.gov.in', password: 'Admin@12345' }),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      localStorage.setItem('doca_admin_token', data.access_token);
-      localStorage.setItem('doca_admin_name', data.name || 'DOCA Enforcement Admin');
-      localStorage.setItem('doca_admin_role', data.role || 'ADMIN');
-      return data.access_token;
-    }
-  } catch {}
+  // No auto-login — redirect to LoginGate instead.
   return '';
 }
 
@@ -43,8 +33,6 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   if (!res.ok) throw new Error(`${res.status} ${path}`);
   return res.json() as Promise<T>;
 }
-
-export const isLiveConfigured = () => true;
 
 export interface AssignmentPayload {
   commodity_id: string;

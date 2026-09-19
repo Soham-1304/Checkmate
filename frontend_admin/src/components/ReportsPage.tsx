@@ -12,7 +12,7 @@ import {
   AlertTriangle,
   XCircle,
 } from 'lucide-react';
-import { api, token } from '../api/client';
+import { api, token, BASE } from '../api/client';
 
 export const ReportsPage: React.FC<{ onSelectInspection?: (backendId: string) => void }> = ({
   onSelectInspection,
@@ -37,7 +37,6 @@ export const ReportsPage: React.FC<{ onSelectInspection?: (backendId: string) =>
   const handleDownloadCsv = async () => {
     setDownloadingCsv(true);
     try {
-      const BASE = (import.meta as any).env?.VITE_API_BASE_URL ?? 'http://localhost:8000/api/v1';
       const authToken = token();
       const res = await fetch(`${BASE}/repository/export/csv`, {
         headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
@@ -59,18 +58,9 @@ export const ReportsPage: React.FC<{ onSelectInspection?: (backendId: string) =>
     }
   };
 
-  const handleOpenPdf = async (e: React.MouseEvent, inspectionId: string) => {
+  const handleOpenPdf = (e: React.MouseEvent, inspectionId: string) => {
     e.stopPropagation();
-    try {
-      const res = await api<{ file_url?: string }>(`/inspections/${inspectionId}/report`);
-      if (res?.file_url) {
-        window.open(res.file_url, '_blank', 'noopener');
-      } else {
-        alert('PDF report is not yet generated for this inspection.');
-      }
-    } catch {
-      alert('Could not retrieve PDF report for this inspection.');
-    }
+    window.open(`${BASE}/inspections/${inspectionId}/report/pdf`, '_blank', 'noopener');
   };
 
   const filtered = items.filter((i) => {
@@ -210,14 +200,26 @@ export const ReportsPage: React.FC<{ onSelectInspection?: (backendId: string) =>
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <button
-                          onClick={(e) => handleOpenPdf(e, r.inspection_id)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-[#017374] hover:bg-[#E5F0EC] transition-all text-xs font-bold"
-                        >
-                          <FileText className="w-3.5 h-3.5" />
-                          <span>PDF</span>
-                          <ExternalLink className="w-3 h-3" />
-                        </button>
+                        <div className="inline-flex items-center gap-1.5 justify-end">
+                          <button
+                            onClick={(e) => handleOpenPdf(e, r.inspection_id)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-[#017374] hover:bg-[#E5F0EC] transition-all text-xs font-bold"
+                            title="View PDF Certificate in browser"
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                            <span>PDF</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </button>
+                          <a
+                            href={`${BASE}/inspections/${r.inspection_id}/report/download`}
+                            download
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:text-[#017374] hover:border-[#017374] transition-all text-xs font-semibold"
+                            title="Download PDF"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                          </a>
+                        </div>
                       </td>
                     </tr>
                   );

@@ -39,7 +39,7 @@ export const CompaniesPage: React.FC<CompaniesPageProps> = ({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
 
-  const { data: liveCompanies } = useLiveCompanies([]);
+  const { data: liveCompanies, loading } = useLiveCompanies([]);
 
   // Dynamic filter options based on available data
   const categories = useMemo(() => {
@@ -458,7 +458,16 @@ export const CompaniesPage: React.FC<CompaniesPageProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium">
-              {paginatedCompanies.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={9} className="py-20 text-center text-slate-400">
+                    <div className="flex flex-col items-center justify-center gap-3">
+                      <div className="w-8 h-8 rounded-full border-2 border-[#017374] border-t-transparent animate-spin" />
+                      <span className="text-xs font-semibold text-slate-600">Loading registered companies and compliance audit history…</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : paginatedCompanies.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-16 text-center text-slate-400 text-xs">
                     No companies match your filters. Try clearing or relaxing some filters.

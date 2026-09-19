@@ -11,8 +11,8 @@ export default function LoginScreen() {
   const router = useRouter();
   const { login, isLoading } = useAuthStore();
   
-  const [email, setEmail] = useState('officer@doca.gov.in');
-  const [password, setPassword] = useState('Officer@12345');
+  const [email, setEmail] = useState(__DEV__ ? 'officer@doca.gov.in' : '');
+  const [password, setPassword] = useState(__DEV__ ? 'Officer@12345' : '');
   const [obscurePassword, setObscurePassword] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -95,29 +95,31 @@ export default function LoginScreen() {
           style={styles.loginBtn}
         />
 
-        <View style={styles.demoSection}>
-          <Text style={[Typography.labelSmall, { color: Colors.textSecondary, marginBottom: 8 }]}>QUICK DEMO LOGIN</Text>
-          <View style={styles.demoRow}>
-            <Pressable
-              style={[styles.demoChip, email === 'officer@doca.gov.in' && styles.demoChipActive]}
-              onPress={() => fillDemoCreds('officer@doca.gov.in', 'Officer@12345')}
-            >
-              <Text style={[styles.demoChipText, email === 'officer@doca.gov.in' && styles.demoChipTextActive]}>👮 Officer</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.demoChip, email === 'reviewer@doca.gov.in' && styles.demoChipActive]}
-              onPress={() => fillDemoCreds('reviewer@doca.gov.in', 'Reviewer@12345')}
-            >
-              <Text style={[styles.demoChipText, email === 'reviewer@doca.gov.in' && styles.demoChipTextActive]}>🔍 Reviewer</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.demoChip, email === 'admin@doca.gov.in' && styles.demoChipActive]}
-              onPress={() => fillDemoCreds('admin@doca.gov.in', 'Admin@12345')}
-            >
-              <Text style={[styles.demoChipText, email === 'admin@doca.gov.in' && styles.demoChipTextActive]}>👑 Admin</Text>
-            </Pressable>
+        {__DEV__ && (
+          <View style={styles.demoSection}>
+            <Text style={[Typography.labelSmall, { color: Colors.textSecondary, marginBottom: 8 }]}>QUICK DEMO LOGIN</Text>
+            <View style={styles.demoRow}>
+              <Pressable
+                style={[styles.demoChip, email === 'officer@doca.gov.in' && styles.demoChipActive]}
+                onPress={() => fillDemoCreds('officer@doca.gov.in', 'Officer@12345')}
+              >
+                <Text style={[styles.demoChipText, email === 'officer@doca.gov.in' && styles.demoChipTextActive]}>👮 Officer</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.demoChip, email === 'reviewer@doca.gov.in' && styles.demoChipActive]}
+                onPress={() => fillDemoCreds('reviewer@doca.gov.in', 'Reviewer@12345')}
+              >
+                <Text style={[styles.demoChipText, email === 'reviewer@doca.gov.in' && styles.demoChipTextActive]}>🔍 Reviewer</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.demoChip, email === 'admin@doca.gov.in' && styles.demoChipActive]}
+                onPress={() => fillDemoCreds('admin@doca.gov.in', 'Admin@12345')}
+              >
+                <Text style={[styles.demoChipText, email === 'admin@doca.gov.in' && styles.demoChipTextActive]}>👑 Admin</Text>
+              </Pressable>
+            </View>
           </View>
-        </View>
+        )}
 
         <View style={styles.orContainer}>
           <View style={styles.divider} />

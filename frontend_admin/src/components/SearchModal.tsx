@@ -129,41 +129,57 @@ export const SearchModal: React.FC<SearchModalProps> = ({
               </div>
             ) : (
               <div className="space-y-1">
-                {inspections.map((item) => (
-                  <div
-                    key={item.inspection_id}
-                    onClick={() => {
-                      if (onSelectInspection) onSelectInspection(item.inspection_id);
-                      onClose();
-                    }}
-                    className="flex items-center justify-between p-2.5 rounded-xl hover:bg-[#E5F0EC]/60 cursor-pointer transition-colors group"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 rounded-lg bg-[#017374]/10 text-[#017374] flex items-center justify-center shrink-0">
-                        <Package className="w-4 h-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-xs font-bold text-slate-800 truncate group-hover:text-[#017374]">
-                          {item.brand} {item.commodity}
+                {inspections.map((item) => {
+                  const res = (item.compliance_result ?? '').toUpperCase();
+                  const pillCls =
+                    res === 'PASS'
+                      ? 'bg-emerald-100 text-[#017374]'
+                      : res === 'FAIL'
+                        ? 'bg-rose-100 text-rose-700'
+                        : 'bg-[#FEB519]/20 text-[#9a6206]';
+                  const pillText = res === 'PASS' ? 'Compliant' : res === 'FAIL' ? 'Non-Compliant' : 'Review';
+
+                  return (
+                    <div
+                      key={item.inspection_id}
+                      onClick={() => {
+                        if (onSelectInspection) onSelectInspection(item.inspection_id);
+                        onClose();
+                      }}
+                      className="flex items-center justify-between p-2.5 rounded-xl hover:bg-[#E5F0EC]/60 cursor-pointer transition-colors group"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-8 h-8 rounded-lg bg-[#017374]/10 text-[#017374] flex items-center justify-center shrink-0">
+                          <Package className="w-4 h-4" />
                         </div>
-                        <div className="text-[11px] text-slate-400 truncate flex items-center gap-2">
-                          <span>{item.inspection_id.slice(0, 8).toUpperCase()}</span>
-                          <span>•</span>
-                          <span>{item.manufacturer || 'Manufacturer'}</span>
-                          {item.barcode && (
-                            <>
-                              <span>•</span>
-                              <span className="flex items-center gap-0.5">
-                                <Barcode className="w-3 h-3" /> {item.barcode}
-                              </span>
-                            </>
-                          )}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-slate-800 truncate group-hover:text-[#017374]">
+                              {item.brand} {item.commodity}
+                            </span>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${pillCls}`}>
+                              {pillText}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-slate-400 truncate flex items-center gap-2">
+                            <span>{item.inspection_id.slice(0, 8).toUpperCase()}</span>
+                            <span>•</span>
+                            <span>{item.manufacturer || 'Manufacturer'}</span>
+                            {item.barcode && (
+                              <>
+                                <span>•</span>
+                                <span className="flex items-center gap-0.5 font-mono">
+                                  <Barcode className="w-3 h-3" /> {item.barcode}
+                                </span>
+                              </>
+                            )}
+                          </div>
                         </div>
                       </div>
+                      <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#017374] shrink-0" />
                     </div>
-                    <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#017374] shrink-0" />
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Upload, Sparkles, CheckCircle2, ShieldAlert, Loader2, Image as ImageIcon, ArrowRight } from 'lucide-react';
-import { api, token } from '../api/client';
+import { api, token, BASE } from '../api/client';
 
 interface NewInspectionModalProps {
   isOpen: boolean;
@@ -83,7 +83,6 @@ export const NewInspectionModal: React.FC<NewInspectionModalProps> = ({
         formData.append('file', file);
         formData.append('view_type', 'FRONT_PDP');
 
-        const BASE = (import.meta as any).env?.VITE_API_BASE_URL ?? 'http://localhost:8000/api/v1';
         const authToken = token();
         const uploadRes = await fetch(`${BASE}/inspections/${inspectionId}/evidence`, {
           method: 'POST',

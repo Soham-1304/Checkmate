@@ -12,14 +12,16 @@ export default function DashboardScreen() {
   const [dashboard, setDashboard] = useState<OfficerDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
+    setError(null);
     try {
       const data = await fetchOfficerDashboard();
       setDashboard(data);
-    } catch {
-      // silently fail — UI shows zeros
+    } catch (err: any) {
+      setError(err?.message || 'Could not refresh dashboard data. Please check network connection.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -41,6 +43,12 @@ export default function DashboardScreen() {
 
   const showColors = total > 0;
 
+  const trendPoints = dashboard?.trend_7d?.map(t => t.count);
+  const trendDates = dashboard?.trend_7d?.map(t => {
+    const d = new Date(t.date);
+    return `${d.getDate().toString().padStart(2, '0')} ${d.toLocaleString('default', { month: 'short' })}`;
+  });
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
@@ -56,6 +64,13 @@ export default function DashboardScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={Colors.primary} />}
       >
+        {error ? (
+          <View style={{ marginHorizontal: Spacing.lg, marginTop: Spacing.md, padding: 12, backgroundColor: '#FFEBEE', borderRadius: 8, borderWidth: 1, borderColor: '#FFCDD2', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <MaterialIcons name="error-outline" size={18} color="#C62828" />
+            <Text style={{ color: '#C62828', fontSize: 12, flex: 1 }}>{error}</Text>
+          </View>
+        ) : null}
+
         {loading ? (
           <View style={{ paddingVertical: 60, alignItems: 'center' }}>
             <ActivityIndicator size="large" color={Colors.primary} />
@@ -125,7 +140,7 @@ export default function DashboardScreen() {
               )}
             </View>
 
-            <InspectionTrendChart currentTotal={total} />
+            <InspectionTrendChart currentTotal={total} dataPoints={trendPoints} dates={trendDates} />
             <InspectionActivityTimeline activity={activity} />
           </>
         )}

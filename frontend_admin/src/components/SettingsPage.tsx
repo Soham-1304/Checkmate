@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, Scale, Server, User, ShieldCheck, Check, Loader2, RefreshCw } from 'lucide-react';
-import { api, token } from '../api/client';
+import { api, token, BASE } from '../api/client';
 
 export const SettingsPage: React.FC = () => {
   const [ruleSets, setRuleSets] = useState<any[]>([]);
@@ -8,7 +8,7 @@ export const SettingsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
-  const BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL ?? 'http://localhost:8000/api/v1';
+  const BASE_URL = BASE;
 
   const loadData = () => {
     setLoading(true);

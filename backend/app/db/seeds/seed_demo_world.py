@@ -13,6 +13,7 @@ from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import select
 
+from app.core.config import settings
 from app.core.security import get_password_hash
 from app.db.session import AsyncSessionLocal
 from app.models.compliance import AuditEvent, Report
@@ -279,10 +280,10 @@ async def seed_demo_world():
                     key = photo_keys[j % len(photo_keys)]
                     data, mime = photo_cache[key]
                     oname = f"demo/{insp_id}/{uuid.uuid4().hex[:8]}.png"
-                    storage_service.upload_bytes(oname, data, mime, "Bluetick_Image_Store")
+                    storage_service.upload_bytes(oname, data, mime, settings.SUPABASE_BUCKET_EVIDENCE)
                     furi = None
                     try:
-                        furi = storage_service.presigned_url(oname, "Bluetick_Image_Store")
+                        furi = storage_service.presigned_url(oname, settings.SUPABASE_BUCKET_EVIDENCE)
                     except Exception:
                         pass
                     session.add(Evidence(inspection_id=insp.id, file_key=oname, file_url=furi,

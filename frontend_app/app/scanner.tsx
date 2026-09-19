@@ -20,9 +20,26 @@ export default function ScannerScreen() {
   const [commodities, setCommodities] = useState<Commodity[]>([]);
   const [brands, setBrands] = useState<Record<string, string>>({});
   const [loadingList, setLoadingList] = useState(false);
+  const [scannedFeedback, setScannedFeedback] = useState<string | null>(null);
 
   const { photos, addPhotos, setAssignment } = useInspectStore();
   const router = useRouter();
+
+  // Preload commodities and assignments for barcode auto-matching
+  useEffect(() => {
+    (async () => {
+      try {
+        const [list, comms] = await Promise.all([
+          fetchMyChecklist().catch(() => [] as Assignment[]),
+          fetchCommodities().catch(() => [] as Commodity[]),
+        ]);
+        setAssignments(list);
+        setCommodities(comms);
+      } catch {
+        // Silent catch for background preloading
+      }
+    })();
+  }, []);
 
   if (!permission) {
     return <View style={styles.container} />;
@@ -50,7 +67,6 @@ export default function ScannerScreen() {
       setAssignments(list);
       setCommodities(comms);
 
-      // If user has no assignments, auto switch to 'all'
       if (list.length === 0) {
         setActiveTab('all');
       } else {
@@ -103,6 +119,56 @@ export default function ScannerScreen() {
     }
   };
 
+  const handleBarcodeScanned = ({ data }: { data: string }) => {
+    if (scannedFeedback) return; // Prevent duplicate triggers
+    setScannedFeedback(data);
+
+    // Match barcode in assignments or commodities
+    const matchedAssignment = assignments.find((a) => a.commodity_barcode === data);
+    if (matchedAssignment) {
+      setAssignment(matchedAssignment, brands[matchedAssignment.commodity_id] || null);
+      Alert.alert('Barcode Detected!', `Matched assigned item: ${matchedAssignment.commodity_name}`, [
+        {
+          text: 'Proceed to Inspect',
+          onPress: () => router.push('/inspect-confirm' as any),
+        },
+      ]);
+      return;
+    }
+
+    const matchedCommodity = commodities.find((c) => c.barcode === data);
+    if (matchedCommodity) {
+      setAssignment(
+        {
+          id: '',
+          commodity_id: matchedCommodity.id,
+          commodity_name: matchedCommodity.generic_name,
+          commodity_barcode: matchedCommodity.barcode || data,
+          status: 'OPEN',
+        },
+        matchedCommodity.brand_name || null,
+      );
+      Alert.alert('Barcode Detected!', `Matched catalog item: ${matchedCommodity.generic_name}`, [
+        {
+          text: 'Proceed to Inspect',
+          onPress: () => router.push('/inspect-confirm' as any),
+        },
+      ]);
+      return;
+    }
+
+    // Fallback if not in catalogue
+    Alert.alert('Barcode Scanned', `Code: ${data}. Select or search commodity manually.`, [
+      {
+        text: 'OK',
+        onPress: () => {
+          setScannedFeedback(null);
+          openSelectionSheet();
+        },
+      },
+    ]);
+  };
+
   const handleSelectAssignment = (a: Assignment) => {
     setAssignment(a, brands[a.commodity_id] || null);
     setSheetVisible(false);
@@ -110,7 +176,6 @@ export default function ScannerScreen() {
   };
 
   const handleSelectCommodity = (c: Commodity) => {
-    // Ad-hoc inspection for commodity
     setAssignment(
       {
         id: '',
@@ -153,18 +218,27 @@ export default function ScannerScreen() {
         facing="back"
         enableTorch={flash}
         ref={cameraRef}
+        barcodeScannerSettings={{
+          barcodeTypes: ['qr', 'pdf417', 'ean13', 'ean8', 'upc_e', 'code128'],
+        }}
+        onBarcodeScanned={handleBarcodeScanned}
       >
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} style={styles.iconButton}>
             <MaterialIcons name="arrow-back" size={28} color={Colors.textInverse} />
           </Pressable>
-          <Text style={[Typography.titleLarge, { color: Colors.textInverse }]}>Scan Label</Text>
+          <Text style={[Typography.titleLarge, { color: Colors.textInverse }]}>Scan Label / Barcode</Text>
           <Pressable onPress={() => setFlash(!flash)} style={styles.iconButton}>
             <MaterialIcons name={flash ? "flash-on" : "flash-off"} size={28} color={Colors.textInverse} />
           </Pressable>
         </View>
 
-        <View style={styles.reticleContainer}>
+        {/* Guidance Text & Frame Overlay */}
+        <View style={styles.reticleContainer} pointerEvents="none">
+          <View style={styles.guidanceBanner}>
+            <MaterialIcons name="qr-code-scanner" size={18} color="#FFFFFF" />
+            <Text style={styles.guidanceText}>Align packaging label within frame</Text>
+          </View>
           <View style={styles.reticleBox}>
             <View style={[styles.corner, styles.topLeft]} />
             <View style={[styles.corner, styles.topRight]} />
@@ -365,6 +439,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 5,
   },
+  guidanceBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginBottom: 20,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  guidanceText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   reticleBox: {
     width: '80%',
     aspectRatio: 3 / 4,
@@ -402,7 +493,7 @@ const styles = StyleSheet.create({
   },
   photoBadge: {
     position: 'absolute',
-    top: 110,
+    top: 140,
     alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',

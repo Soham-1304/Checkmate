@@ -34,10 +34,11 @@ export const InspectionsPage: React.FC<InspectionsPageProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('All');
   const [selectedCompliance, setSelectedCompliance] = useState('All');
+  const [selectedCompany, setSelectedCompany] = useState('All');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   // Live seeded inspections only — no mock rows
-  const { data: liveRows, live } = useLiveInspections();
+  const { data: liveRows, live, loading } = useLiveInspections();
   const liveInspections: InspectionDetailRow[] = liveRows.map((r) => ({
     id: r.shortId,
     backendId: r.backendId,
@@ -67,6 +68,11 @@ export const InspectionsPage: React.FC<InspectionsPageProps> = ({
     return { total, compliant, minor, major, critical, aiReview, pct };
   }, [liveInspections]);
 
+  const companyOptions = React.useMemo(() => {
+    const set = new Set(liveInspections.map((i) => i.company.name).filter(Boolean));
+    return ['All', ...Array.from(set)];
+  }, [liveInspections]);
+
   // Filter inspections
   const filteredInspections = liveInspections.filter((item) => {
     const matchesQuery =
@@ -81,7 +87,10 @@ export const InspectionsPage: React.FC<InspectionsPageProps> = ({
     const matchesCompliance =
       selectedCompliance === 'All' || item.compliance === selectedCompliance;
 
-    return matchesQuery && matchesStatus && matchesCompliance;
+    const matchesCompany =
+      selectedCompany === 'All' || item.company.name === selectedCompany;
+
+    return matchesQuery && matchesStatus && matchesCompliance && matchesCompany;
   });
 
   const PAGE_SIZE = 8;
@@ -245,42 +254,73 @@ export const InspectionsPage: React.FC<InspectionsPageProps> = ({
           </button>
 
           {/* Status */}
-          <button className="flex items-center gap-2 bg-white px-3 py-2 border border-slate-200/80 rounded-xl font-medium text-slate-700 shadow-2xs hover:bg-slate-50">
+          <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 border border-slate-200/80 rounded-xl text-xs font-medium text-slate-700 shadow-2xs hover:bg-slate-50">
             <span className="w-2 h-2 rounded-full bg-[#017374]" />
-            <span className="text-slate-400 font-normal">Status</span>
-            <span className="font-semibold text-slate-800">All</span>
-            <ChevronDown className="w-3 h-3 text-slate-400" />
-          </button>
+            <span className="text-slate-400 font-normal">Status:</span>
+            <select
+              value={selectedStatus}
+              onChange={(e) => {
+                setSelectedStatus(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="bg-transparent font-semibold text-slate-800 outline-none cursor-pointer text-xs pr-1"
+            >
+              <option value="All">All Statuses</option>
+              <option value="Pending">Pending</option>
+              <option value="Approved">Approved</option>
+              <option value="Rejected">Rejected</option>
+              <option value="AI Review">AI Review</option>
+              <option value="Re-inspection">Re-inspection</option>
+            </select>
+          </div>
 
           {/* Compliance */}
-          <button className="flex items-center gap-2 bg-white px-3 py-2 border border-slate-200/80 rounded-xl font-medium text-slate-700 shadow-2xs hover:bg-slate-50">
+          <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 border border-slate-200/80 rounded-xl text-xs font-medium text-slate-700 shadow-2xs hover:bg-slate-50">
             <Shield className="w-3.5 h-3.5 text-slate-400" />
-            <span className="text-slate-400 font-normal">Compliance</span>
-            <span className="font-semibold text-slate-800">All</span>
-            <ChevronDown className="w-3 h-3 text-slate-400" />
-          </button>
+            <span className="text-slate-400 font-normal">Compliance:</span>
+            <select
+              value={selectedCompliance}
+              onChange={(e) => {
+                setSelectedCompliance(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="bg-transparent font-semibold text-slate-800 outline-none cursor-pointer text-xs pr-1"
+            >
+              <option value="All">All Compliance</option>
+              <option value="Compliant">Compliant</option>
+              <option value="Minor">Minor</option>
+              <option value="Major">Major</option>
+              <option value="Critical">Critical</option>
+            </select>
+          </div>
 
           {/* Company */}
-          <button className="flex items-center gap-2 bg-white px-3 py-2 border border-slate-200/80 rounded-xl font-medium text-slate-700 shadow-2xs hover:bg-slate-50">
+          <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 border border-slate-200/80 rounded-xl text-xs font-medium text-slate-700 shadow-2xs hover:bg-slate-50">
             <Building2 className="w-3.5 h-3.5 text-slate-400" />
-            <span className="text-slate-400 font-normal">Company</span>
-            <span className="font-semibold text-slate-800">All</span>
-            <ChevronDown className="w-3 h-3 text-slate-400" />
-          </button>
-
-          {/* More Filters */}
-          <button className="flex items-center gap-1.5 bg-white px-3 py-2 border border-slate-200/80 rounded-xl font-semibold text-slate-700 shadow-2xs hover:bg-slate-50">
-            <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
-            <span>More Filters</span>
-          </button>
+            <span className="text-slate-400 font-normal">Company:</span>
+            <select
+              value={selectedCompany}
+              onChange={(e) => {
+                setSelectedCompany(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="bg-transparent font-semibold text-slate-800 outline-none cursor-pointer text-xs pr-1 max-w-[140px] truncate"
+            >
+              {companyOptions.map((c) => (
+                <option key={c} value={c}>{c === 'All' ? 'All Companies' : c}</option>
+              ))}
+            </select>
+          </div>
 
           {/* Clear All */}
-          {(searchQuery || selectedStatus !== 'All' || selectedCompliance !== 'All') && (
+          {(searchQuery || selectedStatus !== 'All' || selectedCompliance !== 'All' || selectedCompany !== 'All') && (
             <button
               onClick={() => {
                 setSearchQuery('');
                 setSelectedStatus('All');
                 setSelectedCompliance('All');
+                setSelectedCompany('All');
+                setCurrentPage(1);
               }}
               className="text-xs font-semibold text-slate-500 hover:text-[#017374] px-2 py-1 transition-colors"
             >
@@ -363,154 +403,171 @@ export const InspectionsPage: React.FC<InspectionsPageProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium">
-              {pageRows.map((row) => {
-                const isSelected = selectedIds.includes(row.id);
+              {loading ? (
+                <tr>
+                  <td colSpan={10} className="py-20 text-center text-slate-400">
+                    <div className="flex flex-col items-center justify-center gap-3">
+                      <div className="w-8 h-8 rounded-full border-2 border-[#017374] border-t-transparent animate-spin" />
+                      <span className="text-xs font-semibold text-slate-600">Loading live inspections from Legal Metrology Registry…</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : pageRows.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="py-16 text-center text-slate-400 text-xs">
+                    No inspections match your search criteria.
+                  </td>
+                </tr>
+              ) : (
+                pageRows.map((row) => {
+                  const isSelected = selectedIds.includes(row.id);
 
-                return (
-                  <tr
-                    key={row.id}
-                    onClick={() => onViewInspection(row)}
-                    className={`hover:bg-slate-50 transition-colors cursor-pointer group ${
-                      isSelected ? 'bg-[#E5F0EC]/30' : ''
-                    }`}
-                  >
-                    {/* Checkbox */}
-                    <td className="py-3.5 px-6">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={(e) => toggleSelectRow(row.id, e)}
-                        className="w-4 h-4 rounded text-[#017374] focus:ring-[#017374] border-slate-300"
-                      />
-                    </td>
-
-                    {/* Inspection ID + High Priority Badge */}
-                    <td className="py-3.5 px-4 font-semibold text-slate-800">
-                      <div className="font-bold text-slate-900 group-hover:text-[#017374] transition-colors">{row.id}</div>
-                      {row.isHighPriority && (
-                        <div className="flex items-center gap-1 text-[10px] font-bold text-[#E37820] mt-0.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#E37820]" />
-                          <span>High Priority</span>
-                        </div>
-                      )}
-                    </td>
-
-                    {/* Product Mockup + Name + Category */}
-                    <td className="py-3.5 px-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-10 rounded-md bg-white border border-slate-100 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
-                          <ProductMockup type={row.product.mockupType} />
-                        </div>
-                        <div>
-                          <div className="font-bold text-slate-800 line-clamp-1 group-hover:text-[#017374] transition-colors">
-                            {row.product.name}
-                          </div>
-                          <div className="text-[11px] text-slate-400">{row.product.category}</div>
-                        </div>
-                      </div>
-                    </td>
-
-                    {/* Company */}
-                    <td className="py-3.5 px-4">
-                      <div className="font-bold text-slate-800">{row.company.name}</div>
-                      <div className="text-[11px] text-slate-400">{row.company.industry}</div>
-                    </td>
-
-                    {/* Officer */}
-                    <td className="py-3.5 px-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-[#017374] text-white text-[10px] font-bold flex items-center justify-center shrink-0">
-                          {row.officer.initials}
-                        </div>
-                        <span className="text-slate-700 font-medium">{row.officer.name}</span>
-                      </div>
-                    </td>
-
-                    {/* Date & Time */}
-                    <td className="py-3.5 px-4 text-slate-500 whitespace-nowrap">
-                      {row.dateTime}
-                    </td>
-
-                    {/* Compliance Badge */}
-                    <td className="py-3.5 px-4">
-                      <span
-                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                          row.compliance === 'Compliant'
-                            ? 'bg-emerald-100/70 text-[#017374]'
-                            : row.compliance === 'Minor'
-                            ? 'bg-[#FEB519]/25 text-[#9a6206]'
-                            : row.compliance === 'Major'
-                            ? 'bg-[#E37820]/15 text-[#E37820]'
-                            : 'bg-rose-100/80 text-rose-700'
-                        }`}
-                      >
-                        {row.compliance === 'Compliant' && <span className="w-1.5 h-1.5 rounded-full bg-[#017374]" />}
-                        {row.compliance === 'Minor' && <span>▲</span>}
-                        {row.compliance === 'Major' && <span>▲</span>}
-                        {row.compliance === 'Critical' && <span className="w-1.5 h-1.5 rounded-full bg-rose-600" />}
-                        <span>{row.compliance}</span>
-                      </span>
-                    </td>
-
-                    {/* AI Finding */}
-                    <td className="py-3.5 px-4">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100/80 text-[#017374]">
-                          AI • {row.aiFinding.confidence}%
-                        </span>
-                        <span className="text-[11px] text-slate-500 truncate max-w-[140px]" title={row.aiFinding.description}>
-                          {row.aiFinding.description}
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* Status Badge */}
-                    <td className="py-3.5 px-4">
-                      <span
-                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                          row.status === 'Approved'
-                            ? 'bg-emerald-50 text-[#017374] border border-emerald-100'
-                            : row.status === 'Pending'
-                            ? 'bg-slate-100 text-slate-600 border border-slate-200'
-                            : row.status === 'Rejected'
-                            ? 'bg-rose-50 text-rose-600 border border-rose-100'
-                            : row.status === 'AI Review'
-                            ? 'bg-[#FEB519]/20 text-[#9a6206] border border-[#FEB519]/30'
-                            : 'bg-teal-50 text-teal-700 border border-teal-100'
-                        }`}
-                      >
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full ${
-                            row.status === 'Approved'
-                              ? 'bg-[#017374]'
-                              : row.status === 'Pending'
-                              ? 'bg-slate-400'
-                              : row.status === 'Rejected'
-                              ? 'bg-rose-500'
-                              : row.status === 'AI Review'
-                              ? 'bg-[#FEB519]'
-                              : 'bg-teal-600'
-                          }`}
+                  return (
+                    <tr
+                      key={row.id}
+                      onClick={() => onViewInspection(row)}
+                      className={`hover:bg-slate-50 transition-colors cursor-pointer group ${
+                        isSelected ? 'bg-[#E5F0EC]/30' : ''
+                      }`}
+                    >
+                      {/* Checkbox */}
+                      <td className="py-3.5 px-6">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={(e) => toggleSelectRow(row.id, e)}
+                          className="w-4 h-4 rounded text-[#017374] focus:ring-[#017374] border-slate-300"
                         />
-                        {row.status}
-                      </span>
-                    </td>
+                      </td>
 
-                    {/* Action */}
-                    <td className="py-3.5 px-6 text-right">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onViewInspection(row);
-                        }}
-                        className="text-xs font-bold text-[#017374] hover:text-[#015758] transition-colors"
-                      >
-                        View →
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
+                      {/* Inspection ID + High Priority Badge */}
+                      <td className="py-3.5 px-4 font-semibold text-slate-800">
+                        <div className="font-bold text-slate-900 group-hover:text-[#017374] transition-colors">{row.id}</div>
+                        {row.isHighPriority && (
+                          <div className="flex items-center gap-1 text-[10px] font-bold text-[#E37820] mt-0.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#E37820]" />
+                            <span>High Priority</span>
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Product Mockup + Name + Category */}
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-10 rounded-md bg-white border border-slate-100 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                            <ProductMockup type={row.product.mockupType} />
+                          </div>
+                          <div>
+                            <div className="font-bold text-slate-800 line-clamp-1 group-hover:text-[#017374] transition-colors">
+                              {row.product.name}
+                            </div>
+                            <div className="text-[11px] text-slate-400">{row.product.category}</div>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Company */}
+                      <td className="py-3.5 px-4">
+                        <div className="font-bold text-slate-800">{row.company.name}</div>
+                        <div className="text-[11px] text-slate-400">{row.company.industry}</div>
+                      </td>
+
+                      {/* Officer */}
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-[#017374] text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                            {row.officer.initials}
+                          </div>
+                          <span className="text-slate-700 font-medium">{row.officer.name}</span>
+                        </div>
+                      </td>
+
+                      {/* Date & Time */}
+                      <td className="py-3.5 px-4 text-slate-500 whitespace-nowrap">
+                        {row.dateTime}
+                      </td>
+
+                      {/* Compliance Badge */}
+                      <td className="py-3.5 px-4">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                            row.compliance === 'Compliant'
+                              ? 'bg-emerald-100/70 text-[#017374]'
+                              : row.compliance === 'Minor'
+                              ? 'bg-[#FEB519]/25 text-[#9a6206]'
+                              : row.compliance === 'Major'
+                              ? 'bg-[#E37820]/15 text-[#E37820]'
+                              : 'bg-rose-100/80 text-rose-700'
+                          }`}
+                        >
+                          {row.compliance === 'Compliant' && <span className="w-1.5 h-1.5 rounded-full bg-[#017374]" />}
+                          {row.compliance === 'Minor' && <span>▲</span>}
+                          {row.compliance === 'Major' && <span>▲</span>}
+                          {row.compliance === 'Critical' && <span className="w-1.5 h-1.5 rounded-full bg-rose-600" />}
+                          <span>{row.compliance}</span>
+                        </span>
+                      </td>
+
+                      {/* AI Finding */}
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100/80 text-[#017374]">
+                            AI • {row.aiFinding.confidence}%
+                          </span>
+                          <span className="text-[11px] text-slate-500 truncate max-w-[140px]" title={row.aiFinding.description}>
+                            {row.aiFinding.description}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Status Badge */}
+                      <td className="py-3.5 px-4">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                            row.status === 'Approved'
+                              ? 'bg-emerald-50 text-[#017374] border border-emerald-100'
+                              : row.status === 'Pending'
+                              ? 'bg-slate-100 text-slate-600 border border-slate-200'
+                              : row.status === 'Rejected'
+                              ? 'bg-rose-50 text-rose-600 border border-rose-100'
+                              : row.status === 'AI Review'
+                              ? 'bg-[#FEB519]/20 text-[#9a6206] border border-[#FEB519]/30'
+                              : 'bg-teal-50 text-teal-700 border border-teal-100'
+                          }`}
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              row.status === 'Approved'
+                                ? 'bg-[#017374]'
+                                : row.status === 'Pending'
+                                ? 'bg-slate-400'
+                                : row.status === 'Rejected'
+                                ? 'bg-rose-500'
+                                : row.status === 'AI Review'
+                                ? 'bg-[#FEB519]'
+                                : 'bg-teal-600'
+                            }`}
+                          />
+                          {row.status}
+                        </span>
+                      </td>
+
+                      {/* Action */}
+                      <td className="py-3.5 px-6 text-right">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onViewInspection(row);
+                          }}
+                          className="text-xs font-bold text-[#017374] hover:text-[#015758] transition-colors"
+                        >
+                          View →
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>

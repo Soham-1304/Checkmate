@@ -25,10 +25,14 @@ ADMIN_STATUSES = {"ASSIGNED", "IN_PROGRESS", "COMPLETED", "REASSIGNED", "CANCELL
 
 
 def _out(a: Assignment) -> AssignmentOut:
+    brand_name = a.commodity.brand.name if a.commodity and a.commodity.brand else None
+    commodity_category = a.commodity.category if a.commodity else None
     return AssignmentOut(
         id=a.id, commodity_id=a.commodity_id,
         commodity_name=a.commodity.generic_name if a.commodity else None,
         commodity_barcode=a.commodity.barcode if a.commodity else None,
+        brand_name=brand_name,
+        commodity_category=commodity_category,
         assigned_by=a.assigned_by, assigner_name=a.assigner.name if a.assigner else None,
         assigned_to=a.assigned_to, assignee_name=a.assignee.name if a.assignee else None,
         rule_set_id=a.rule_set_id, status=a.status, due_date=a.due_date, notes=a.notes,
@@ -38,7 +42,7 @@ def _out(a: Assignment) -> AssignmentOut:
 
 def _eager(stmt):
     return stmt.options(
-        selectinload(Assignment.commodity),
+        selectinload(Assignment.commodity).selectinload(Commodity.brand),
         selectinload(Assignment.assigner),
         selectinload(Assignment.assignee),
     )

@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import { Loader2, LogOut, AlertTriangle } from 'lucide-react';
-import { isLiveConfigured } from '../api/client';
-
-const BASE = (import.meta as any).env?.VITE_API_BASE_URL ?? 'http://localhost:8000/api/v1';
+import { isLiveConfigured, BASE } from '../api/client';
 
 export function triggerSignOut() {
   localStorage.removeItem('doca_admin_token');

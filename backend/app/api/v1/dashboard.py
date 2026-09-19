@@ -112,11 +112,33 @@ async def get_officer_dashboard(
         )
     ).scalars().all()
 
+    # 7-day volume trend for this officer
+    seven_days_ago = datetime.now(timezone.utc) - timedelta(days=6)
+    trend_rows = (
+        await db.execute(
+            select(
+                func.date(Inspection.created_at).label("day"),
+                func.count(Inspection.id).label("total"),
+            )
+            .where(Inspection.officer_id == current_user.id, Inspection.created_at >= seven_days_ago)
+            .group_by(func.date(Inspection.created_at))
+        )
+    ).all()
+    trend_by_day = {str(r[0]): r[1] for r in trend_rows}
+    trend_7d = [
+        {
+            "date": (seven_days_ago + timedelta(days=i)).date().isoformat(),
+            "count": trend_by_day.get((seven_days_ago + timedelta(days=i)).date().isoformat(), 0),
+        }
+        for i in range(7)
+    ]
+
     return {
         "today_count": today_count,
         "my_pending_assignments": pending,
         "my_completion_rate": round(done_mine / total_mine, 3) if total_mine else 0.0,
         "my_total_inspections": total_mine,
+        "trend_7d": trend_7d,
         "recent_activity": [
             {
                 "id": str(i.id),

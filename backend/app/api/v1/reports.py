@@ -1,7 +1,9 @@
+import asyncio
 import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -97,3 +99,63 @@ async def render_report(
             detail=f"Report render failed: {exc}",
         )
     return _fresh_url(report)
+
+
+@router.get("/{inspection_id}/report/pdf")
+async def stream_report_pdf(
+    inspection_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _guard: User = view_guard,
+):
+    """Directly stream the inspection PDF report with inline Content-Disposition
+    so web browsers (iframes) and mobile devices can view it immediately without external links."""
+    inspection = await _get_inspection(inspection_id, db)
+    _scoped(inspection, current_user)
+
+    report = (
+        await db.execute(select(Report).where(Report.inspection_id == inspection_id))
+    ).scalar_one_or_none()
+
+    if not report:
+        try:
+            report = await report_service.render_inspection_report(
+                db, inspection_id, current_user.id
+            )
+        except Exception as exc:
+            logger.exception("report: render failed on stream request for %s", inspection_id)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Report rendering failed: {exc}",
+            )
+
+    try:
+        pdf_bytes = await asyncio.to_thread(
+            storage_service.download_bytes, report.file_key, settings.SUPABASE_BUCKET_REPORTS
+        )
+    except Exception as exc:
+        logger.warning("report: stored PDF fetch failed for %s: %s; rendering fresh", report.file_key, exc)
+        context = await report_service.build_report_context(db, inspection_id)
+        pdf_bytes = await asyncio.to_thread(report_service.render_pdf, context)
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"inline; filename=inspection_report_{inspection_id}.pdf"
+        },
+    )
+
+
+@router.get("/{inspection_id}/report/download")
+async def download_report_pdf(
+    inspection_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _guard: User = view_guard,
+):
+    """Directly download the inspection PDF report as an attachment."""
+    res = await stream_report_pdf(inspection_id, db, current_user, _guard)
+    res.headers["Content-Disposition"] = f"attachment; filename=inspection_report_{inspection_id}.pdf"
+    return res
+
