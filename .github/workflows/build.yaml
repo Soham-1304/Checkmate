@@ -1,0 +1,130 @@
+name: Checkmate CI & App Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─────────────────────────────────────────────────────────────
+  # 1. Mobile App: Typecheck & Production Bundle Export
+  # ─────────────────────────────────────────────────────────────
+  build-mobile-app:
+    name: 📱 Build Mobile App (Expo SDK 53)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: frontend_app/package.json
+
+      - name: 📦 Install App Dependencies
+        working-directory: frontend_app
+        run: npm install
+
+      - name: 🔍 TypeScript Typecheck
+        working-directory: frontend_app
+        run: npx tsc --noEmit
+
+      - name: 🚀 Export Production Bundle (Android / iOS / Web)
+        working-directory: frontend_app
+        env:
+          EXPO_NO_TELEMETRY: '1'
+          CI: '1'
+        run: npx expo export --output-dir dist
+
+      - name: 📤 Upload App Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: checkmate-mobile-bundle
+          path: frontend_app/dist/
+          retention-days: 14
+
+      - name: 🏗️ Trigger EAS Android APK Build (if EXPO_TOKEN configured)
+        if: env.EXPO_TOKEN != ''
+        working-directory: frontend_app
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          npx eas-cli build --platform android --profile preview --non-interactive
+
+  # ─────────────────────────────────────────────────────────────
+  # 2. Admin Web Portal: TypeScript & Vite Production Build
+  # ─────────────────────────────────────────────────────────────
+  build-admin-portal:
+    name: 💻 Build Admin Portal (Vite + React)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: frontend_admin/package.json
+
+      - name: 📦 Install Admin Dependencies
+        working-directory: frontend_admin
+        run: npm install
+
+      - name: 🔨 Build Static Site
+        working-directory: frontend_admin
+        run: npm run build
+
+      - name: 📤 Upload Admin Portal Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: checkmate-admin-dist
+          path: frontend_admin/dist/
+          retention-days: 14
+
+  # ─────────────────────────────────────────────────────────────
+  # 3. Central Backend: Unit Tests & PDF Engine Verification
+  # ─────────────────────────────────────────────────────────────
+  test-backend:
+    name: ⚙️ Verify Backend & Statutory PDF Engine
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🐍 Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: 📦 Install Backend Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt pytest
+
+      - name: 🧪 Run Statutory PDF & Compliance Tests
+        working-directory: backend
+        run: |
+          python -m pytest tests/test_pdf_and_compliance.py -v
+
+      - name: 🩺 Smoke Test App Initialization
+        working-directory: backend
+        env:
+          SECRET_KEY: ci_test_secret_key_checkmate_2026_ci_runner
+          DATABASE_URL: postgresql+asyncpg://dummy:dummy@localhost:5432/dummy
+        run: |
+          python -c "from app.main import app; print('Checkmate backend initialized successfully with routes:', len(app.routes))"
